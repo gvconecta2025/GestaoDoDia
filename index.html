@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestão do Dia</title>
+    <title>Gestão do Dia - Versão Cadernetas Temáticas</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
-        /* Estilos simples para a barra de rolagem e efeitos de arrastar */
+        /* Estilos base e de rolagem */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -19,27 +19,108 @@
         .drag-over { background-color: rgba(203, 213, 225, 0.5) !important; border-style: dashed; }
         .task-card { cursor: grab; transition: transform 0.1s, box-shadow 0.1s; }
         .task-card:active { cursor: grabbing; transform: scale(0.98); }
+        .task-card[draggable="false"] { cursor: default; } /* Se DnD travado */
+        
+        /* Estilos de Caderneta */
+        .espiral-header { height: 32px; z-index: 20; position: relative; top: 12px; }
+        .espiral-ring { width: 12px; height: 32px; border-radius: 6px; border: 2px solid; position: relative; margin: 0 4px; }
+        .caderneta-wrapper { z-index: 10; position: relative; transition: background-color 0.3s; }
+        .theme-btn.active { border: 2px solid #3b82f6; }
+
+        /* Temas de Caderneta: CSS */
+        /* Tema 1: Minimalista (Branco + Anéis Metálicos) */
+        .theme-minimal .caderneta-wrapper { background-color: #ffffff; }
+        .theme-minimal .espiral-ring { background-color: #e2e8f0; border-color: #94a3b8; }
+        .theme-minimal .impact-alto { border-color: #f87171; }
+        .theme-minimal .impact-normal { border-color: #fbbf24; }
+        .theme-minimal .impact-baixo { border-color: #60a5fa; }
+        .theme-minimal .zonas-bg { background-color: #ffffff; }
+        .theme-minimal .concluidas-bg { background-color: #f1f5f9; }
+
+        /* Tema 2: Kraft Natural (Papel Kraft + Anéis Escuros) */
+        .theme-kraft .caderneta-wrapper { background-color: #FDF6E3; } /* Creme Suave */
+        .theme-kraft .espiral-ring { background-color: #586E75; border-color: #384A51; }
+        .theme-kraft .impact-alto { border-color: #DC322F; }
+        .theme-kraft .impact-normal { border-color: #B58900; }
+        .theme-kraft .impact-baixo { border-color: #268BD2; }
+        .theme-kraft .zonas-bg { background-color: #FDF6E3; }
+        .theme-kraft .concluidas-bg { background-color: #EEE8D5; }
+
+        /* Tema 3: Pautado Vintage (Papel Kraft Amarelado + Anéis Vermelhos/Pauta) */
+        .theme-lined .caderneta-wrapper { background-color: #FEF3D1; } /* Amarelo Pálido */
+        .theme-lined .espiral-ring { background-color: #E64A19; border-color: #BF360C; }
+        .theme-lined .caderneta-wrapper .caderneta-body {
+            background-image: linear-gradient(to bottom, #dbeafe 1px, transparent 1px);
+            background-size: 100% 24px;
+            background-position: 0 12px;
+        }
+        .theme-lined .impact-alto { border-color: #D32F2F; }
+        .theme-lined .impact-normal { border-color: #F9A825; }
+        .theme-lined .impact-baixo { border-color: #1976D2; }
+        .theme-lined .zonas-bg { background-color: #FEF3D1; }
+        .theme-lined .concluidas-bg { background-color: #EFE4A9; }
+
+        /* Tema 4: Preto Elegante (Preto + Capa Preta) */
+        .theme-black .caderneta-wrapper { background-color: #1a1a1a; }
+        .theme-black .espiral-ring { background-color: #000000; border-color: #000000; }
+        .theme-black .caderneta-body h3 { color: #f8fafc; }
+        .theme-black .concluidas-bg h4 { color: #94a3b8; }
+        .theme-black .impact-alto { border-color: #b91c1c; }
+        .theme-black .impact-normal { border-color: #d97706; }
+        .theme-black .impact-baixo { border-color: #1d4ed8; }
+        .theme-black .zonas-bg { background-color: #1a1a1a; }
+        .theme-black .concluidas-bg { background-color: #1f2937; }
+        .theme-black .zonas-bg p, .theme-black .task-card span { color: #e2e8f0; }
+
+        /* Tema 5: Profissional Vermelho (Creme + Índice Vermelho/Capa Lado) */
+        .theme-red .caderneta-wrapper { background-color: #fefce8; } /* Creme Claro */
+        .theme-red .espiral-ring { background-color: #991b1b; border-color: #7f1d1d; }
+        .theme-red .impact-alto { border-color: #dc2626; }
+        .theme-red .impact-normal { border-color: #eab308; }
+        .theme-red .impact-baixo { border-color: #2563eb; }
+        .theme-red .zonas-bg { background-color: #fefce8; }
+        .theme-red .concluidas-bg { background-color: #fef3c7; }
     </style>
 </head>
-<body class="bg-slate-100 h-screen flex overflow-hidden font-sans text-slate-800">
+<body class="bg-slate-100 h-screen flex overflow-hidden font-sans text-slate-800 transition-all theme-minimal">
 
-    <aside class="w-60 bg-slate-900 text-white flex flex-col p-6 shadow-xl hidden md:flex">
+    <aside class="w-60 bg-slate-900 text-white flex flex-col p-6 shadow-xl hidden md:flex shrink-0">
         <div class="mb-10">
             <h1 class="text-2xl font-bold tracking-tighter">LOGO</h1>
             <span class="text-[10px] text-slate-400 font-mono">VERSÃO 1.0</span>
         </div>
-        <nav class="flex-1 space-y-2">
-            <button class="flex items-center gap-3 w-full p-3 bg-blue-600 rounded-lg text-sm font-bold transition hover:bg-blue-700">
-                <i class="fa-solid fa-table-columns w-4"></i> Projetos
-            </button>
-            <button class="flex items-center gap-3 w-full p-3 hover:bg-slate-800 rounded-lg text-sm text-slate-300 transition">
-                <i class="fa-solid fa-book-open w-4"></i> Cadernetas
-            </button>
-            <button class="flex items-center gap-3 w-full p-3 hover:bg-slate-800 rounded-lg text-sm text-slate-300 transition">
-                <i class="fa-solid fa-gear w-4"></i> Ajustes
-            </button>
+        <nav class="flex-1 space-y-4">
+            <div class="space-y-2">
+                <button class="flex items-center gap-3 w-full p-3 bg-blue-600 rounded-lg text-sm font-bold transition hover:bg-blue-700">
+                    <i class="fa-solid fa-table-columns w-4"></i> Projetos
+                </button>
+                <button class="flex items-center gap-3 w-full p-3 hover:bg-slate-800 rounded-lg text-sm text-slate-300 transition">
+                    <i class="fa-solid fa-book-open w-4"></i> Cadernetas
+                </button>
+            </div>
+            
+            <div class="pt-4 border-t border-slate-700 space-y-2">
+                <p class="text-xs font-bold text-slate-500 uppercase">Ajustes Rápidos</p>
+                <button id="lockDragBtn" class="flex items-center gap-3 w-full p-3 bg-red-600 rounded-lg text-sm font-bold transition hover:bg-red-700">
+                    <i class="fa-solid fa-lock w-4"></i> Travar Arrasto
+                </button>
+                <button id="unlockDragBtn" class="flex items-center gap-3 w-full p-3 bg-green-600 rounded-lg text-sm font-bold transition hover:bg-green-700 hidden">
+                    <i class="fa-solid fa-lock-open w-4"></i> Destravar Arrasto
+                </button>
+            </div>
+
+            <div class="pt-4 border-t border-slate-700 space-y-2">
+                <p class="text-xs font-bold text-slate-500 uppercase">Mudar Tema Caderneta</p>
+                <div class="grid grid-cols-5 gap-2">
+                    <button class="theme-btn theme-minimal active h-10 w-10 rounded-full bg-white border border-slate-300" onclick="setTheme('minimal', this)" title="Minimalista"></button>
+                    <button class="theme-btn theme-kraft h-10 w-10 rounded-full bg-[#FDF6E3] border border-[#586E75]" onclick="setTheme('kraft', this)" title="Kraft Natural"></button>
+                    <button class="theme-btn theme-lined h-10 w-10 rounded-full bg-[#FEF3D1] border border-[#E64A19]" onclick="setTheme('lined', this)" title="Pautado Vintage"></button>
+                    <button class="theme-btn theme-black h-10 w-10 rounded-full bg-[#1a1a1a] border border-[#000000]" onclick="setTheme('black', this)" title="Preto Elegante"></button>
+                    <button class="theme-btn theme-red h-10 w-10 rounded-full bg-[#fefce8] border border-[#991b1b]" onclick="setTheme('red', this)" title="Profissional Vermelho"></button>
+                </div>
+            </div>
         </nav>
-        <button class="flex items-center gap-3 p-3 text-slate-400 hover:text-white text-sm transition">
+        <button class="flex items-center gap-3 p-3 text-slate-400 hover:text-white text-sm transition pt-6 border-t border-slate-700">
             <i class="fa-solid fa-right-from-bracket w-4"></i> Sair
         </button>
     </aside>
@@ -47,7 +128,7 @@
     <div class="flex-1 flex flex-col min-w-0">
         
         <header class="h-16 bg-white border-b flex items-center justify-between px-8 shadow-sm shrink-0">
-            <h2 class="text-lg font-bold text-slate-600 uppercase tracking-widest">Cabeçalho</h2>
+            <h2 class="text-lg font-bold text-slate-600 uppercase tracking-widest">Gestão do Dia</h2>
             <div class="flex bg-slate-100 rounded-md p-1 border border-slate-200">
                 <button class="px-3 py-1 text-sm font-bold bg-white shadow-sm rounded text-slate-800">Dia</button>
                 <button class="px-3 py-1 text-sm font-semibold text-slate-500 hover:text-slate-700">Semana</button>
@@ -62,13 +143,13 @@
     </div>
 
     <script>
-        // Nossos dados iniciais
+        // Dados e Variáveis de Estado
         let tasks = [
-            { id: '1', title: 'Resolver bug crítico', col: 'atrasado', impact: 'alto', completed: false },
-            { id: '2', title: 'Gravar vídeo principal', col: 'agora', impact: 'alto', completed: false },
-            { id: '3', title: 'Revisar roteiro', col: 'agora', impact: 'normal', completed: false },
-            { id: '4', title: 'Limpar mesa', col: 'agora', impact: 'baixo', completed: false },
-            { id: '5', title: 'Planejar novo projeto', col: 'antecipado', impact: 'normal', completed: false }
+            { id: '1', title: 'Aprovar wireframes iniciais', col: 'atrasado', impact: 'alto', completed: false },
+            { id: '2', title: 'Implementar lógica de DnD', col: 'agora', impact: 'alto', completed: false },
+            { id: '3', title: 'Definir 5 temas de caderneta', col: 'agora', impact: 'normal', completed: false },
+            { id: '4', title: 'Atualizar ícones FontAwesome', col: 'agora', impact: 'baixo', completed: false },
+            { id: '5', title: 'Criar botões de controle DnD', col: 'antecipado', impact: 'normal', completed: false }
         ];
 
         const columns = [
@@ -78,40 +159,80 @@
         ];
 
         const impacts = [
-            { id: 'alto', label: 'Alto Impacto', bg: 'bg-red-50', border: 'border-red-400' },
-            { id: 'normal', label: 'Impacto Normal', bg: 'bg-amber-50', border: 'border-amber-400' },
-            { id: 'baixo', label: 'Baixo Impacto', bg: 'bg-blue-50', border: 'border-blue-400' }
+            { id: 'alto', label: 'Alto Impacto' },
+            { id: 'normal', label: 'Impacto Normal' },
+            { id: 'baixo', label: 'Baixo Impacto' }
         ];
 
         let draggedTaskId = null;
+        let dragDisabled = false; // Estado DnD
 
-        // Função para construir o visual na tela
+        // Controles de Arrasto
+        const lockDragBtn = document.getElementById('lockDragBtn');
+        const unlockDragBtn = document.getElementById('unlockDragBtn');
+
+        lockDragBtn.addEventListener('click', () => setDragDisabled(true));
+        unlockDragBtn.addEventListener('click', () => setDragDisabled(false));
+
+        function setDragDisabled(disabled) {
+            dragDisabled = disabled;
+            const task_cards = document.querySelectorAll('.task-card');
+            task_cards.forEach(card => card.draggable = !disabled); // Atualiza Draggable HTML
+            
+            // Troca Botões
+            lockDragBtn.classList.toggle('hidden', disabled);
+            unlockDragBtn.classList.toggle('hidden', !disabled);
+            
+            // Feedback Visual se Travado
+            if (disabled) {
+                const board = document.getElementById('board');
+                board.classList.add('opacity-75'); // Exemplo de feedback
+            } else {
+                const board = document.getElementById('board');
+                board.classList.remove('opacity-75');
+            }
+        }
+
+        // Função de Mudança de Tema
+        function setTheme(themeName, btn) {
+            // Atualiza Botão Ativo
+            const theme_btns = document.querySelectorAll('.theme-btn');
+            theme_btns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            // Atualiza Corpo da Página
+            document.body.className = `bg-slate-100 h-screen flex overflow-hidden font-sans text-slate-800 transition-all theme-${themeName}`;
+            
+            renderBoard(); // Re-renderiza para aplicar classes corretas nas cadernetas
+        }
+
+        // Função Principal de Renderização
         function renderBoard() {
             const board = document.getElementById('board');
             board.innerHTML = ''; // Limpa o quadro
 
             columns.forEach(col => {
-                // Cria a estrutura da caderneta
+                // Estrutura Visual da Caderneta
                 const caderneta = document.createElement('div');
                 caderneta.className = "flex-1 flex flex-col min-w-[320px] max-w-[400px]";
 
-                // Espiral
-                let espiralHTML = '<div class="flex justify-evenly px-6 z-20 relative top-3">';
-                for(let i=0; i<10; i++) {
-                    espiralHTML += '<div class="w-3 h-8 bg-slate-800 rounded-full shadow-sm border border-slate-900"></div>';
+                // Espiral Detalhado (Como no desenho)
+                let espiralHTML = '<div class="espiral-header flex justify-evenly px-6">';
+                for(let i=0; i<8; i++) {
+                    espiralHTML += '<div class="espiral-ring"></div>';
                 }
                 espiralHTML += '</div>';
 
                 // Corpo da Caderneta
                 let corpoHTML = `
-                    <div class="flex-1 bg-white rounded-2xl shadow-xl border border-slate-200 flex flex-col overflow-hidden relative z-10">
-                        <div class="pt-8 pb-4 px-4 bg-slate-50 border-b border-slate-100 text-center">
-                            <h3 class="text-xl font-black text-slate-800 uppercase tracking-widest">${col.title}</h3>
+                    <div class="caderneta-wrapper flex-1 border border-slate-200 flex flex-col rounded-2xl shadow-xl overflow-hidden">
+                        <div class="pt-10 pb-4 px-4 bg-slate-50 border-b border-slate-100 text-center">
+                            <h3 class="text-xl font-black uppercase tracking-widest">${col.title}</h3>
                         </div>
-                        <div class="flex-1 overflow-y-auto p-4 space-y-4" id="zonas-${col.id}">
+                        <div class="caderneta-body flex-1 overflow-y-auto zonas-bg p-4 space-y-4" id="zonas-${col.id}">
                             </div>
-                        <div class="p-4 bg-slate-50 border-t-2 border-dashed border-slate-200 max-h-40 overflow-y-auto" id="concluidas-${col.id}">
-                            <p class="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Concluídas</p>
+                        <div class="concluidas-bg p-4 border-t-2 border-dashed border-slate-200 max-h-40 overflow-y-auto" id="concluidas-${col.id}">
+                            <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Concluídas</h4>
                             </div>
                     </div>
                 `;
@@ -119,38 +240,44 @@
                 caderneta.innerHTML = espiralHTML + corpoHTML;
                 board.appendChild(caderneta);
 
-                // Adiciona as zonas de impacto (cores) dentro da caderneta
+                // Zonas de Impacto (Cores)
                 const zonasContainer = document.getElementById(`zonas-${col.id}`);
                 
                 impacts.forEach(imp => {
                     const zona = document.createElement('div');
-                    zona.className = `min-h-[100px] border-l-4 rounded-r-xl p-3 transition-colors ${imp.bg} ${imp.border}`;
+                    zona.className = `min-h-[100px] border-l-4 rounded-r-xl p-3 transition-colors impact-${imp.id}`;
                     zona.innerHTML = `<p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">${imp.label}</p>`;
                     
-                    // Eventos de Drag and Drop (Arrastar e soltar) na Zona
-                    zona.addEventListener('dragover', e => { e.preventDefault(); zona.classList.add('drag-over'); });
+                    // Eventos de DnD na Zona
+                    zona.addEventListener('dragover', e => { 
+                        if (dragDisabled) return; // TravaDnD
+                        e.preventDefault(); zona.classList.add('drag-over'); 
+                    });
                     zona.addEventListener('dragleave', () => zona.classList.remove('drag-over'));
                     zona.addEventListener('drop', e => {
+                        if (dragDisabled) return; // TravaDnD
                         e.preventDefault();
                         zona.classList.remove('drag-over');
                         moverTarefa(draggedTaskId, col.id, imp.id);
                     });
 
-                    // Puxa as tarefas que pertencem a esta coluna e a este impacto
+                    // Filtra e Injeta Tarefas Ativas
                     const tarefasAtivas = tasks.filter(t => t.col === col.id && t.impact === imp.id && !t.completed);
                     tarefasAtivas.forEach(task => zona.appendChild(criarElementoTarefa(task)));
 
                     zonasContainer.appendChild(zona);
                 });
 
-                // Adiciona as tarefas concluídas no rodapé
+                // Filtra e Injeta Tarefas Concluídas
                 const concluidasContainer = document.getElementById(`concluidas-${col.id}`);
                 const tarefasConcluidas = tasks.filter(t => t.col === col.id && t.completed);
                 tarefasConcluidas.forEach(task => concluidasContainer.appendChild(criarElementoTarefa(task)));
-            }
-        )}
+            });
+            
+            if(dragDisabled) setDragDisabled(true); // Garante estado visual após render
+        }
 
-        // Função que cria o visual de uma tarefa individual
+        // Função Auxiliar para Criar Visual de Tarefa
         function criarElementoTarefa(task) {
             const div = document.createElement('div');
             
@@ -164,24 +291,27 @@
             } else {
                 // Visual de tarefa ativa
                 div.className = "task-card bg-white p-3 rounded-lg shadow-sm border border-slate-200 mb-2 flex items-start gap-3 hover:shadow-md";
-                div.draggable = true;
+                div.draggable = !dragDisabled; // Ativa/Desativa Draggable com base no estado
                 
                 // Eventos de arrastar na Tarefa
-                div.addEventListener('dragstart', () => { draggedTaskId = task.id; setTimeout(() => div.style.opacity = '0.5', 0); });
+                div.addEventListener('dragstart', (e) => { 
+                    if (dragDisabled) { e.preventDefault(); return; } // TravaDnD
+                    draggedTaskId = task.id; setTimeout(() => div.style.opacity = '0.5', 0); 
+                });
                 div.addEventListener('dragend', () => { draggedTaskId = null; div.style.opacity = '1'; });
 
                 div.innerHTML = `
-                    <i class="fa-solid fa-grip-vertical text-slate-300 mt-1"></i>
+                    <i class="fa-solid fa-grip-vertical text-slate-300 mt-1 shrink-0"></i>
                     <div class="flex-1 flex items-start gap-3">
                         <input type="checkbox" onclick="toggleTarefa('${task.id}')" class="mt-1 w-4 h-4 cursor-pointer accent-slate-800">
-                        <span class="text-sm font-semibold text-slate-700 leading-snug">${task.title}</span>
+                        <span class="text-sm font-semibold leading-snug">${task.title}</span>
                     </div>
                 `;
             }
             return div;
         }
 
-        // Função para marcar/desmarcar como concluída
+        // Funções de Lógica de Negócio
         function toggleTarefa(id) {
             const task = tasks.find(t => t.id === id);
             if(task) {
@@ -190,7 +320,6 @@
             }
         }
 
-        // Função para mudar a tarefa de lugar ao soltar
         function moverTarefa(id, novaColuna, novoImpacto) {
             const task = tasks.find(t => t.id === id);
             if(task && draggedTaskId) {
@@ -200,7 +329,7 @@
             }
         }
 
-        // Inicia o aplicativo montando a tela pela primeira vez
+        // Inicia o quadro pela primeira vez
         renderBoard();
     </script>
 </body>
