@@ -14,37 +14,16 @@
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
-        /* 1. Alinhamento Perfeito da Pauta (Matemática de 32px) */
-        .papel-base {
-            background-color: #faf9f6;
-            transition: background-image 0.2s;
-        }
-
-        .papel-pautado {
-            /* Linhas exatas a cada 32px começando do topo */
-            background-image: repeating-linear-gradient(transparent, transparent 31px, #cbd5e1 31px, #cbd5e1 32px);
-            background-attachment: local;
-            background-position: 0 0;
-        }
-
+        .papel-base { background-color: #faf9f6; transition: background-image 0.2s; }
+        .papel-pautado { background-image: repeating-linear-gradient(transparent, transparent 31px, #cbd5e1 31px, #cbd5e1 32px); background-attachment: local; background-position: 0 0; }
         .papel-liso { background-image: none; }
 
-        /* Espiral */
         .espiral-container { position: absolute; top: -12px; left: 0; width: 100%; display: flex; justify-content: space-evenly; z-index: 20; }
         .anel-espiral { width: 8px; height: 24px; background: linear-gradient(to right, #94a3b8, #e2e8f0, #94a3b8); border-radius: 10px; border: 1px solid #64748b; box-shadow: 1px 2px 3px rgba(0,0,0,0.3); }
         .furo-papel { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 10px; height: 10px; background-color: #f1f5f9; border-radius: 50%; box-shadow: inset 1px 1px 3px rgba(0,0,0,0.5); z-index: 10; }
 
-        /* Drag and Drop e Tarefas */
         .drag-over { background-color: rgba(254, 252, 232, 0.8) !important; border-style: dashed; }
-        
-        .task-card { 
-            cursor: grab; 
-            background-color: transparent; 
-            /* A altura da tarefa e das margens acompanham os 32px da pauta */
-            min-height: 32px; 
-            line-height: 32px; 
-            margin-bottom: 0px; 
-        }
+        .task-card { cursor: grab; background-color: transparent; min-height: 32px; line-height: 32px; margin-bottom: 0px; }
         .task-card.dragging { opacity: 0.4; }
         .task-card:active { cursor: grabbing; transform: scale(0.99); }
         .task-card[draggable="false"] { cursor: default; }
@@ -57,8 +36,12 @@
         }
         .btn-criacao:hover { transform: scale(1.1); }
         
-        /* Badges de Datas e Etiquetas Inline para não quebrar a pauta */
         .badge { font-size: 0.65rem; padding: 2px 6px; border-radius: 12px; line-height: 1; vertical-align: middle; display: inline-flex; align-items: center; gap: 4px; margin-left: 6px;}
+
+        /* Estilo para a paleta de cores no modal de tags */
+        .color-option { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; transition: transform 0.1s; border: 2px solid transparent; }
+        .color-option:hover { transform: scale(1.1); }
+        .color-option.selected { border-color: #0f172a; transform: scale(1.1); box-shadow: 0 0 0 2px white, 0 0 0 4px #0f172a; }
     </style>
 </head>
 <body class="bg-slate-200 h-screen flex overflow-hidden font-sans text-slate-800">
@@ -66,7 +49,7 @@
     <aside class="w-60 bg-slate-900 text-white flex flex-col p-6 shadow-xl hidden md:flex shrink-0 z-40">
         <div class="mb-10">
             <h1 class="text-2xl font-bold tracking-tighter">LOGO</h1>
-            <span class="text-[10px] text-slate-400 font-mono">VERSÃO 3.0 PRO</span>
+            <span class="text-[10px] text-slate-400 font-mono">VERSÃO 3.1 PRO</span>
         </div>
         <nav class="flex-1 space-y-2">
             <button class="flex items-center gap-3 w-full p-3 bg-blue-600 rounded-lg text-sm font-bold transition hover:bg-blue-700">
@@ -85,8 +68,8 @@
                 </button>
             </div>
             <div class="pt-6 mt-6 border-t border-slate-700">
-                <button onclick="gerenciarEtiquetas()" class="flex items-center gap-3 w-full p-3 bg-slate-800 text-slate-300 rounded-lg text-sm font-bold transition hover:bg-slate-700 hover:text-white">
-                    <i class="fa-solid fa-tags w-4"></i> Gerenciar Etiquetas
+                <button onclick="abrirModalTags()" class="flex items-center gap-3 w-full p-3 bg-slate-800 text-slate-300 rounded-lg text-sm font-bold transition hover:bg-slate-700 hover:text-white border border-slate-700">
+                    <i class="fa-solid fa-tags w-4 text-amber-500"></i> Gerenciar Etiquetas
                 </button>
             </div>
         </nav>
@@ -105,17 +88,14 @@
 
     <div id="taskModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 mx-4 transform scale-95 transition-transform duration-200" id="taskModalContent">
-            
             <div class="flex justify-between items-center mb-5">
                 <h3 id="modalTitle" class="text-xl font-black text-slate-800 tracking-tight">Nova Tarefa</h3>
-                <button onclick="fecharModal()" class="text-slate-400 hover:text-slate-600 transition-colors"><i class="fa-solid fa-xmark text-xl"></i></button>
+                <button onclick="fecharModal('taskModal')" class="text-slate-400 hover:text-slate-600 transition-colors"><i class="fa-solid fa-xmark text-xl"></i></button>
             </div>
-
             <div class="mb-4">
                 <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Título</label>
-                <input type="text" id="taskInput" autocomplete="off" class="w-full border-2 border-slate-200 rounded-xl p-3 text-slate-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all placeholder:text-slate-300">
+                <input type="text" id="taskInput" autocomplete="off" class="w-full border-2 border-slate-200 rounded-xl p-3 text-slate-700 font-medium focus:border-blue-500 outline-none transition-all placeholder:text-slate-300">
             </div>
-
             <div class="flex gap-4 mb-4">
                 <div class="flex-1">
                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Início</label>
@@ -126,22 +106,64 @@
                     <input type="date" id="taskEnd" class="w-full border-2 border-slate-200 rounded-xl p-2 text-sm text-slate-700 focus:border-blue-500 outline-none">
                 </div>
             </div>
-
             <div class="mb-6">
-                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Etiquetas</label>
+                <div class="flex justify-between items-center mb-2">
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide">Etiquetas</label>
+                    <button onclick="fecharModal('taskModal'); abrirModalTags();" class="text-xs font-bold text-blue-500 hover:text-blue-700"><i class="fa-solid fa-gear"></i> Gerenciar</button>
+                </div>
                 <div id="tagsContainer" class="flex flex-wrap gap-2">
                     </div>
             </div>
-
             <div class="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                <button onclick="fecharModal()" class="px-5 py-2.5 rounded-xl text-slate-500 font-bold hover:bg-slate-100 transition-colors">Cancelar</button>
+                <button onclick="fecharModal('taskModal')" class="px-5 py-2.5 rounded-xl text-slate-500 font-bold hover:bg-slate-100 transition-colors">Cancelar</button>
                 <button onclick="salvarTarefa()" class="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30">Salvar</button>
             </div>
         </div>
     </div>
 
+    <div id="tagsModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4 transform scale-95 transition-transform duration-200 flex flex-col max-h-[90vh]" id="tagsModalContent">
+            
+            <div class="flex justify-between items-center mb-5 shrink-0">
+                <h3 class="text-xl font-black text-slate-800 tracking-tight"><i class="fa-solid fa-tags text-blue-500 mr-2"></i> Etiquetas</h3>
+                <button onclick="fecharModal('tagsModal')" class="text-slate-400 hover:text-slate-600 transition-colors"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 shrink-0">
+                <h4 id="tagFormTitle" class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Criar Nova Etiqueta</h4>
+                <div class="flex gap-2 mb-3">
+                    <input type="text" id="tagNameInput" placeholder="Nome da etiqueta..." class="flex-1 border-2 border-slate-200 rounded-lg p-2 text-sm text-slate-700 focus:border-blue-500 outline-none">
+                </div>
+                <div class="mb-4">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase mb-2">Cor</p>
+                    <div id="colorPalette" class="flex flex-wrap gap-2">
+                        </div>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button id="cancelTagEditBtn" onclick="cancelarEdicaoTag()" class="hidden px-4 py-1.5 rounded-lg text-sm text-slate-500 font-bold hover:bg-slate-200 transition-colors">Cancelar</button>
+                    <button id="saveTagBtn" onclick="salvarEtiqueta()" class="px-4 py-1.5 rounded-lg text-sm bg-slate-800 text-white font-bold hover:bg-slate-700 transition-colors shadow-sm">Adicionar</button>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto pr-2">
+                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 sticky top-0 bg-white py-1">Suas Etiquetas</h4>
+                <div id="tagsList" class="space-y-2">
+                    </div>
+            </div>
+
+        </div>
+    </div>
+
     <script>
-        // --- BASE DE DADOS EM MEMÓRIA ---
+        // --- CORES PARA ETIQUETAS ---
+        const colorPalette = [
+            'bg-slate-100 text-slate-700', 'bg-red-100 text-red-700', 'bg-orange-100 text-orange-700',
+            'bg-amber-100 text-amber-700', 'bg-green-100 text-green-700', 'bg-emerald-100 text-emerald-700',
+            'bg-teal-100 text-teal-700', 'bg-cyan-100 text-cyan-700', 'bg-blue-100 text-blue-700',
+            'bg-indigo-100 text-indigo-700', 'bg-violet-100 text-violet-700', 'bg-purple-100 text-purple-700',
+            'bg-fuchsia-100 text-fuchsia-700', 'bg-pink-100 text-pink-700', 'bg-rose-100 text-rose-700'
+        ];
+
         let globalTags = [
             { id: 'tag1', name: 'Trabalho', color: 'bg-indigo-100 text-indigo-700' },
             { id: 'tag2', name: 'Urgente', color: 'bg-rose-100 text-rose-700' },
@@ -149,8 +171,8 @@
         ];
 
         let tasks = [
-            { id: '1', title: 'Enviar relatório financeiro', col: 'atrasado', impact: 'alto', completed: false, start: '', end: '2023-11-01', tags: ['tag1', 'tag2'], order: 0 },
-            { id: '2', title: 'Revisar código fonte', col: 'agora', impact: 'alto', completed: false, start: '2023-11-15', end: '', tags: ['tag1'], order: 1 },
+            { id: '1', title: 'Enviar relatório', col: 'atrasado', impact: 'alto', completed: false, start: '', end: '2023-11-01', tags: ['tag1', 'tag2'], order: 0 },
+            { id: '2', title: 'Revisar código', col: 'agora', impact: 'alto', completed: false, start: '2023-11-15', end: '', tags: ['tag1'], order: 1 },
             { id: '3', title: 'Comprar café', col: 'agora', impact: 'normal', completed: false, start: '', end: '', tags: ['tag3'], order: 2 }
         ];
 
@@ -174,63 +196,161 @@
         let currentTargetCol = null;
         let currentEditId = null;
 
-        // --- SISTEMA DE ETIQUETAS ---
-        function gerenciarEtiquetas() {
-            const nome = prompt("Criar nova etiqueta (Digite o nome):");
-            if(nome && nome.trim() !== '') {
-                globalTags.push({
-                    id: 'tag' + Date.now(),
-                    name: nome.trim(),
-                    color: 'bg-slate-200 text-slate-700' // Cor padrão, poderia ser randomizada
+        // --- SISTEMA DE ETIQUETAS (GERENCIADOR) ---
+        let currentTagColor = colorPalette[0];
+        let editingTagId = null;
+
+        function abrirModalTags() {
+            renderColorPalette();
+            renderTagsList();
+            cancelarEdicaoTag(); // Reseta formulário
+            document.getElementById('tagsModal').classList.remove('opacity-0', 'pointer-events-none');
+            document.getElementById('tagsModalContent').classList.remove('scale-95');
+        }
+
+        function renderColorPalette() {
+            const container = document.getElementById('colorPalette');
+            container.innerHTML = '';
+            colorPalette.forEach(color => {
+                // Extrai a cor de fundo para exibir na bolinha (ex: bg-red-100)
+                const bgClass = color.split(' ')[0]; 
+                const isSelected = currentTagColor === color ? 'selected' : '';
+                container.innerHTML += `<div class="color-option ${bgClass} ${isSelected}" onclick="selecionarCorTag('${color}')"></div>`;
+            });
+        }
+
+        function selecionarCorTag(color) {
+            currentTagColor = color;
+            renderColorPalette();
+        }
+
+        function salvarEtiqueta() {
+            const nameInput = document.getElementById('tagNameInput');
+            const name = nameInput.value.trim();
+            if (!name) { nameInput.focus(); return; }
+
+            if (editingTagId) {
+                // Editar existente
+                const tag = globalTags.find(t => t.id === editingTagId);
+                if (tag) { tag.name = name; tag.color = currentTagColor; }
+            } else {
+                // Criar nova
+                globalTags.push({ id: 'tag' + Date.now(), name: name, color: currentTagColor });
+            }
+
+            cancelarEdicaoTag();
+            renderTagsList();
+            renderBoard(); // Atualiza cores/nomes nas tarefas de fundo
+        }
+
+        function iniciarEdicaoTag(id) {
+            const tag = globalTags.find(t => t.id === id);
+            if (tag) {
+                editingTagId = id;
+                document.getElementById('tagNameInput').value = tag.name;
+                currentTagColor = tag.color;
+                
+                document.getElementById('tagFormTitle').textContent = 'Editar Etiqueta';
+                document.getElementById('saveTagBtn').textContent = 'Atualizar';
+                document.getElementById('saveTagBtn').classList.replace('bg-slate-800', 'bg-blue-600');
+                document.getElementById('saveTagBtn').classList.replace('hover:bg-slate-700', 'hover:bg-blue-700');
+                document.getElementById('cancelTagEditBtn').classList.remove('hidden');
+                
+                renderColorPalette();
+                document.getElementById('tagNameInput').focus();
+            }
+        }
+
+        function cancelarEdicaoTag() {
+            editingTagId = null;
+            document.getElementById('tagNameInput').value = '';
+            currentTagColor = colorPalette[Math.floor(Math.random() * colorPalette.length)]; // Cor aleatória pro próximo
+            
+            document.getElementById('tagFormTitle').textContent = 'Criar Nova Etiqueta';
+            document.getElementById('saveTagBtn').textContent = 'Adicionar';
+            document.getElementById('saveTagBtn').classList.replace('bg-blue-600', 'bg-slate-800');
+            document.getElementById('saveTagBtn').classList.replace('hover:bg-blue-700', 'hover:bg-slate-700');
+            document.getElementById('cancelTagEditBtn').classList.add('hidden');
+            
+            renderColorPalette();
+        }
+
+        function excluirTag(id) {
+            if(confirm("Tem certeza? Esta etiqueta será removida de todas as tarefas.")) {
+                // Remove da lista global
+                globalTags = globalTags.filter(t => t.id !== id);
+                // Limpa das tarefas
+                tasks.forEach(task => {
+                    if (task.tags) task.tags = task.tags.filter(tId => tId !== id);
                 });
+                if(editingTagId === id) cancelarEdicaoTag();
+                renderTagsList();
                 renderBoard();
             }
         }
 
-        // --- MODAL & CRUD ---
-        const modal = document.getElementById('taskModal');
-        
+        function renderTagsList() {
+            const container = document.getElementById('tagsList');
+            container.innerHTML = '';
+            if (globalTags.length === 0) {
+                container.innerHTML = '<p class="text-xs text-slate-400 italic">Nenhuma etiqueta criada.</p>';
+                return;
+            }
+            
+            globalTags.forEach(tag => {
+                container.innerHTML += `
+                    <div class="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg border border-transparent hover:border-slate-100 group transition-colors">
+                        <span class="badge ${tag.color} text-xs py-1 px-3">${tag.name}</span>
+                        <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="iniciarEdicaoTag('${tag.id}')" class="text-slate-400 hover:text-blue-500"><i class="fa-solid fa-pen text-xs"></i></button>
+                            <button onclick="excluirTag('${tag.id}')" class="text-slate-400 hover:text-red-500"><i class="fa-solid fa-trash text-xs"></i></button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+
+        // --- MODAL DE TAREFAS (CRUD) ---
         function abrirModalCriar(colId) {
-            modalMode = 'create';
-            currentTargetCol = colId;
+            modalMode = 'create'; currentTargetCol = colId;
             document.getElementById('modalTitle').textContent = 'Nova Tarefa';
             document.getElementById('taskInput').value = '';
             document.getElementById('taskStart').value = '';
             document.getElementById('taskEnd').value = '';
             renderTagsCheckboxes([]);
-            
-            modal.classList.remove('opacity-0', 'pointer-events-none');
+            document.getElementById('taskModal').classList.remove('opacity-0', 'pointer-events-none');
             document.getElementById('taskModalContent').classList.remove('scale-95');
         }
 
         function abrirModalEditar(id) {
             const task = tasks.find(t => t.id === id);
             if(task) {
-                modalMode = 'edit';
-                currentEditId = id;
+                modalMode = 'edit'; currentEditId = id;
                 document.getElementById('modalTitle').textContent = 'Editar Tarefa';
                 document.getElementById('taskInput').value = task.title;
                 document.getElementById('taskStart').value = task.start || '';
                 document.getElementById('taskEnd').value = task.end || '';
                 renderTagsCheckboxes(task.tags || []);
-                
-                modal.classList.remove('opacity-0', 'pointer-events-none');
+                document.getElementById('taskModal').classList.remove('opacity-0', 'pointer-events-none');
                 document.getElementById('taskModalContent').classList.remove('scale-95');
             }
         }
 
-        function fecharModal() {
-            modal.classList.add('opacity-0', 'pointer-events-none');
-            document.getElementById('taskModalContent').classList.add('scale-95');
+        function fecharModal(modalId) {
+            document.getElementById(modalId).classList.add('opacity-0', 'pointer-events-none');
+            document.getElementById(modalId + 'Content').classList.add('scale-95');
         }
 
         function renderTagsCheckboxes(selectedTagIds) {
             const container = document.getElementById('tagsContainer');
             container.innerHTML = '';
+            if (globalTags.length === 0) container.innerHTML = '<span class="text-xs text-slate-400">Sem etiquetas disponíveis.</span>';
+            
             globalTags.forEach(tag => {
                 const checked = selectedTagIds.includes(tag.id) ? 'checked' : '';
                 container.innerHTML += `
-                    <label class="cursor-pointer inline-flex items-center gap-1 bg-slate-50 border border-slate-200 px-3 py-1 rounded-full hover:bg-slate-100">
+                    <label class="cursor-pointer inline-flex items-center gap-1 bg-slate-50 border border-slate-200 px-3 py-1 rounded-full hover:bg-slate-100 transition-colors">
                         <input type="checkbox" value="${tag.id}" class="tag-checkbox accent-blue-600" ${checked}>
                         <span class="text-xs font-semibold text-slate-600">${tag.name}</span>
                     </label>
@@ -241,39 +361,30 @@
         function salvarTarefa() {
             const title = document.getElementById('taskInput').value.trim();
             if (!title) return;
-
             const start = document.getElementById('taskStart').value;
             const end = document.getElementById('taskEnd').value;
-            
             const selectedTags = Array.from(document.querySelectorAll('.tag-checkbox:checked')).map(cb => cb.value);
 
             if (modalMode === 'create') {
                 tasks.push({
-                    id: Date.now().toString(),
-                    title: title, col: currentTargetCol, impact: 'normal', completed: false,
+                    id: Date.now().toString(), title: title, col: currentTargetCol, impact: 'normal', completed: false,
                     start: start, end: end, tags: selectedTags, order: tasks.length
                 });
             } else if (modalMode === 'edit') {
                 const task = tasks.find(t => t.id === currentEditId);
-                if (task) {
-                    task.title = title; task.start = start; task.end = end; task.tags = selectedTags;
-                }
+                if (task) { task.title = title; task.start = start; task.end = end; task.tags = selectedTags; }
             }
-
-            fecharModal(); renderBoard();
+            fecharModal('taskModal'); renderBoard();
         }
 
-        // --- ARRASTO E ORDENAÇÃO (DnD) ---
+        // --- ARRASTO (DnD) E UTILIDADES ---
         function getDragAfterElement(container, y) {
             const draggableElements = [...container.querySelectorAll('.task-card:not(.dragging)')];
             return draggableElements.reduce((closest, child) => {
                 const box = child.getBoundingClientRect();
                 const offset = y - box.top - box.height / 2;
-                if (offset < 0 && offset > closest.offset) {
-                    return { offset: offset, element: child };
-                } else {
-                    return closest;
-                }
+                if (offset < 0 && offset > closest.offset) return { offset: offset, element: child };
+                else return closest;
             }, { offset: Number.NEGATIVE_INFINITY }).element;
         }
 
@@ -281,44 +392,26 @@
             const taskIndex = tasks.findIndex(t => t.id === id);
             if(taskIndex > -1) {
                 let task = tasks[taskIndex];
-                task.col = novaColuna;
-                task.impact = novoImpacto;
-                task.completed = false; // Se voltou pra zona, não tá concluída
-                
-                tasks.splice(taskIndex, 1); // Tira da posição antiga
+                task.col = novaColuna; task.impact = novoImpacto; task.completed = false;
+                tasks.splice(taskIndex, 1);
                 
                 if (elementoAbaixo) {
-                    const idAbaixo = elementoAbaixo.getAttribute('data-id');
-                    const indexAbaixo = tasks.findIndex(t => t.id === idAbaixo);
-                    tasks.splice(indexAbaixo, 0, task); // Insere antes do elemento abaixo
-                } else {
-                    tasks.push(task); // Joga pro final
-                }
+                    const indexAbaixo = tasks.findIndex(t => t.id === elementoAbaixo.getAttribute('data-id'));
+                    tasks.splice(indexAbaixo, 0, task);
+                } else tasks.push(task);
                 
-                // Reatribui order para salvar (simulação)
-                tasks.forEach((t, i) => t.order = i);
-                renderBoard();
+                tasks.forEach((t, i) => t.order = i); renderBoard();
             }
         }
 
         function concluirTarefaDrag(id, colId) {
             const task = tasks.find(t => t.id === id);
-            if(task) {
-                task.completed = true;
-                task.col = colId;
-                renderBoard();
-            }
+            if(task) { task.completed = true; task.col = colId; renderBoard(); }
         }
 
-        function toggleStatusTarefa(id) {
-            const task = tasks.find(t => t.id === id);
-            if(task) { task.completed = !task.completed; renderBoard(); }
-        }
-
-        function excluirTarefa(id) {
-            if(confirm("Excluir anotação?")) { tasks = tasks.filter(t => t.id !== id); renderBoard(); }
-        }
-
+        function toggleStatusTarefa(id) { const task = tasks.find(t => t.id === id); if(task) { task.completed = !task.completed; renderBoard(); } }
+        function excluirTarefa(id) { if(confirm("Excluir anotação?")) { tasks = tasks.filter(t => t.id !== id); renderBoard(); } }
+        
         function toggleLines() {
             linesEnabled = !linesEnabled;
             document.getElementById('linesText').textContent = linesEnabled ? "Ocultar Pauta" : "Mostrar Pauta";
@@ -335,15 +428,13 @@
 
         function formatDate(dateString) {
             if(!dateString) return '';
-            const [y, m, d] = dateString.split('-');
-            return `${d}/${m}`;
+            const [y, m, d] = dateString.split('-'); return `${d}/${m}`;
         }
 
-        // --- RENDERIZAÇÃO ---
+        // --- RENDERIZAÇÃO PRINCIPAL ---
         function renderBoard() {
             const board = document.getElementById('board');
             board.innerHTML = '';
-            
             const currentPaperClass = linesEnabled ? 'papel-pautado' : 'papel-liso';
 
             columns.forEach(col => {
@@ -359,13 +450,10 @@
                         <div class="pt-6 pb-3 px-4 ${col.corTopo} text-white text-center rounded-t-md relative z-10 border-b-4 border-black/20">
                             <h3 class="text-xl font-black uppercase tracking-widest">${col.title}</h3>
                         </div>
-                        
                         <div class="papel-base ${currentPaperClass} flex-1 overflow-y-auto px-4 pt-1 space-y-4" id="zonas-${col.id}"></div>
-
                         <div class="papel-base ${currentPaperClass} px-4 py-2 border-t-2 border-dashed border-slate-300 max-h-32 overflow-y-auto transition-colors" id="concluidas-${col.id}">
                             <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1 mt-1">Concluídas</h4>
                         </div>
-
                         <button onclick="abrirModalCriar('${col.id}')" class="btn-criacao ${col.corBotao} text-white" title="Adicionar Tarefa"><i class="fa-solid fa-plus text-xl"></i></button>
                     </div>
                 `;
@@ -380,29 +468,21 @@
                     zona.className = `min-h-[64px] border-l-4 rounded-r-lg pl-2 transition-colors ${imp.border}`;
                     zona.innerHTML = `<span class="text-[10px] font-bold text-slate-400 uppercase bg-white/60 px-1 rounded inline-block mt-1">${imp.label}</span>`;
                     
-                    zona.addEventListener('dragover', e => { 
-                        if(dragDisabled) return; e.preventDefault(); zona.classList.add('drag-over'); 
-                    });
+                    zona.addEventListener('dragover', e => { if(dragDisabled) return; e.preventDefault(); zona.classList.add('drag-over'); });
                     zona.addEventListener('dragleave', () => zona.classList.remove('drag-over'));
-                    
-                    // 2. ORDENAÇÃO POR ARRASTO DENTRO DA ZONA
                     zona.addEventListener('drop', e => {
                         if(dragDisabled) return; e.preventDefault(); zona.classList.remove('drag-over');
                         const afterElement = getDragAfterElement(zona, e.clientY);
                         moverTarefaPara(draggedTaskId, col.id, imp.id, afterElement);
                     });
 
-                    // Insere tarefas ordenadas (garantindo alinhamento)
                     const tarefasAtivas = tasks.filter(t => t.col === col.id && t.impact === imp.id && !t.completed).sort((a,b) => a.order - b.order);
                     tarefasAtivas.forEach(task => zona.appendChild(criarElementoTarefa(task)));
                     zonasContainer.appendChild(zona);
                 });
 
-                // Lógica de Soltar nas Concluídas
                 const concluidasContainer = document.getElementById(`concluidas-${col.id}`);
-                concluidasContainer.addEventListener('dragover', e => { 
-                    if(dragDisabled) return; e.preventDefault(); concluidasContainer.classList.add('bg-slate-100'); 
-                });
+                concluidasContainer.addEventListener('dragover', e => { if(dragDisabled) return; e.preventDefault(); concluidasContainer.classList.add('bg-slate-100'); });
                 concluidasContainer.addEventListener('dragleave', () => concluidasContainer.classList.remove('bg-slate-100'));
                 concluidasContainer.addEventListener('drop', e => {
                     if(dragDisabled) return; e.preventDefault(); concluidasContainer.classList.remove('bg-slate-100');
@@ -418,16 +498,12 @@
             const div = document.createElement('div');
             div.setAttribute('data-id', task.id);
             
-            // Monta as tags HTML
             let tagsHTML = '';
-            if(task.tags && task.tags.length > 0) {
-                task.tags.forEach(tId => {
-                    const tagObj = globalTags.find(g => g.id === tId);
-                    if(tagObj) tagsHTML += `<span class="badge ${tagObj.color}">${tagObj.name}</span>`;
-                });
-            }
+            if(task.tags) task.tags.forEach(tId => {
+                const tagObj = globalTags.find(g => g.id === tId);
+                if(tagObj) tagsHTML += `<span class="badge ${tagObj.color}">${tagObj.name}</span>`;
+            });
 
-            // Monta as Datas HTML
             let datasHTML = '';
             if(task.start || task.end) {
                 let txt = '';
@@ -438,7 +514,7 @@
             }
 
             if (task.completed) {
-                div.className = "flex items-center gap-2 opacity-60 pl-2 group leading-8"; // leading-8 = 32px pauta
+                div.className = "flex items-center gap-2 opacity-60 pl-2 group leading-8"; 
                 div.innerHTML = `
                     <i class="fa-solid fa-check text-slate-400 shrink-0 cursor-pointer" onclick="toggleStatusTarefa('${task.id}')"></i>
                     <span class="text-sm line-through font-medium text-slate-500 truncate cursor-pointer" onclick="toggleStatusTarefa('${task.id}')">${task.title}</span>
@@ -454,7 +530,6 @@
                 });
                 div.addEventListener('dragend', () => { draggedTaskId = null; div.classList.remove('dragging'); });
 
-                // Checkbox e Texto ficam estritamente alinhados a 32px. Badges ficam inline
                 div.innerHTML = `
                     <i class="fa-solid fa-grip-vertical text-slate-300 shrink-0 mt-2 ${dragDisabled ? 'hidden' : 'cursor-grab'} hover:text-slate-500"></i>
                     <input type="checkbox" onclick="toggleStatusTarefa('${task.id}')" class="w-4 h-4 cursor-pointer accent-slate-800 shrink-0 mt-2">
@@ -462,7 +537,6 @@
                         <span class="text-sm font-semibold text-slate-800 align-middle inline-block">${task.title}</span>
                         ${datasHTML} ${tagsHTML}
                     </div>
-                    
                     <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 bg-white/90 px-1 rounded mt-2">
                         <button onclick="abrirModalEditar('${task.id}')"><i class="fa-solid fa-pen text-blue-500 text-xs hover:text-blue-700"></i></button>
                         <button onclick="excluirTarefa('${task.id}')"><i class="fa-solid fa-trash text-red-500 text-xs hover:text-red-700"></i></button>
