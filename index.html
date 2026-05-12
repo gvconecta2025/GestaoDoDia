@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão do Dia</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* Estilos simples para a barra de rolagem e efeitos de arrastar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .drag-over { background-color: rgba(203, 213, 225, 0.5) !important; border-style: dashed; }
+        .task-card { cursor: grab; transition: transform 0.1s, box-shadow 0.1s; }
+        .task-card:active { cursor: grabbing; transform: scale(0.98); }
+    </style>
+</head>
+<body class="bg-slate-100 h-screen flex overflow-hidden font-sans text-slate-800">
+
+    <aside class="w-60 bg-slate-900 text-white flex flex-col p-6 shadow-xl hidden md:flex">
+        <div class="mb-10">
+            <h1 class="text-2xl font-bold tracking-tighter">LOGO</h1>
+            <span class="text-[10px] text-slate-400 font-mono">VERSÃO 1.0</span>
+        </div>
+        <nav class="flex-1 space-y-2">
+            <button class="flex items-center gap-3 w-full p-3 bg-blue-600 rounded-lg text-sm font-bold transition hover:bg-blue-700">
+                <i class="fa-solid fa-table-columns w-4"></i> Projetos
+            </button>
+            <button class="flex items-center gap-3 w-full p-3 hover:bg-slate-800 rounded-lg text-sm text-slate-300 transition">
+                <i class="fa-solid fa-book-open w-4"></i> Cadernetas
+            </button>
+            <button class="flex items-center gap-3 w-full p-3 hover:bg-slate-800 rounded-lg text-sm text-slate-300 transition">
+                <i class="fa-solid fa-gear w-4"></i> Ajustes
+            </button>
+        </nav>
+        <button class="flex items-center gap-3 p-3 text-slate-400 hover:text-white text-sm transition">
+            <i class="fa-solid fa-right-from-bracket w-4"></i> Sair
+        </button>
+    </aside>
+
+    <div class="flex-1 flex flex-col min-w-0">
+        
+        <header class="h-16 bg-white border-b flex items-center justify-between px-8 shadow-sm shrink-0">
+            <h2 class="text-lg font-bold text-slate-600 uppercase tracking-widest">Cabeçalho</h2>
+            <div class="flex bg-slate-100 rounded-md p-1 border border-slate-200">
+                <button class="px-3 py-1 text-sm font-bold bg-white shadow-sm rounded text-slate-800">Dia</button>
+                <button class="px-3 py-1 text-sm font-semibold text-slate-500 hover:text-slate-700">Semana</button>
+                <button class="px-3 py-1 text-sm font-semibold text-slate-500 hover:text-slate-700">Mês</button>
+            </div>
+        </header>
+
+        <main class="flex-1 overflow-x-auto p-6 md:p-10">
+            <div class="flex gap-8 h-full min-w-max md:min-w-0" id="board">
+                </div>
+        </main>
+    </div>
+
+    <script>
+        // Nossos dados iniciais
+        let tasks = [
+            { id: '1', title: 'Resolver bug crítico', col: 'atrasado', impact: 'alto', completed: false },
+            { id: '2', title: 'Gravar vídeo principal', col: 'agora', impact: 'alto', completed: false },
+            { id: '3', title: 'Revisar roteiro', col: 'agora', impact: 'normal', completed: false },
+            { id: '4', title: 'Limpar mesa', col: 'agora', impact: 'baixo', completed: false },
+            { id: '5', title: 'Planejar novo projeto', col: 'antecipado', impact: 'normal', completed: false }
+        ];
+
+        const columns = [
+            { id: 'atrasado', title: 'Atrasado' },
+            { id: 'agora', title: 'Agora' },
+            { id: 'antecipado', title: 'Antecipado' }
+        ];
+
+        const impacts = [
+            { id: 'alto', label: 'Alto Impacto', bg: 'bg-red-50', border: 'border-red-400' },
+            { id: 'normal', label: 'Impacto Normal', bg: 'bg-amber-50', border: 'border-amber-400' },
+            { id: 'baixo', label: 'Baixo Impacto', bg: 'bg-blue-50', border: 'border-blue-400' }
+        ];
+
+        let draggedTaskId = null;
+
+        // Função para construir o visual na tela
+        function renderBoard() {
+            const board = document.getElementById('board');
+            board.innerHTML = ''; // Limpa o quadro
+
+            columns.forEach(col => {
+                // Cria a estrutura da caderneta
+                const caderneta = document.createElement('div');
+                caderneta.className = "flex-1 flex flex-col min-w-[320px] max-w-[400px]";
+
+                // Espiral
+                let espiralHTML = '<div class="flex justify-evenly px-6 z-20 relative top-3">';
+                for(let i=0; i<10; i++) {
+                    espiralHTML += '<div class="w-3 h-8 bg-slate-800 rounded-full shadow-sm border border-slate-900"></div>';
+                }
+                espiralHTML += '</div>';
+
+                // Corpo da Caderneta
+                let corpoHTML = `
+                    <div class="flex-1 bg-white rounded-2xl shadow-xl border border-slate-200 flex flex-col overflow-hidden relative z-10">
+                        <div class="pt-8 pb-4 px-4 bg-slate-50 border-b border-slate-100 text-center">
+                            <h3 class="text-xl font-black text-slate-800 uppercase tracking-widest">${col.title}</h3>
+                        </div>
+                        <div class="flex-1 overflow-y-auto p-4 space-y-4" id="zonas-${col.id}">
+                            </div>
+                        <div class="p-4 bg-slate-50 border-t-2 border-dashed border-slate-200 max-h-40 overflow-y-auto" id="concluidas-${col.id}">
+                            <p class="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Concluídas</p>
+                            </div>
+                    </div>
+                `;
+
+                caderneta.innerHTML = espiralHTML + corpoHTML;
+                board.appendChild(caderneta);
+
+                // Adiciona as zonas de impacto (cores) dentro da caderneta
+                const zonasContainer = document.getElementById(`zonas-${col.id}`);
+                
+                impacts.forEach(imp => {
+                    const zona = document.createElement('div');
+                    zona.className = `min-h-[100px] border-l-4 rounded-r-xl p-3 transition-colors ${imp.bg} ${imp.border}`;
+                    zona.innerHTML = `<p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">${imp.label}</p>`;
+                    
+                    // Eventos de Drag and Drop (Arrastar e soltar) na Zona
+                    zona.addEventListener('dragover', e => { e.preventDefault(); zona.classList.add('drag-over'); });
+                    zona.addEventListener('dragleave', () => zona.classList.remove('drag-over'));
+                    zona.addEventListener('drop', e => {
+                        e.preventDefault();
+                        zona.classList.remove('drag-over');
+                        moverTarefa(draggedTaskId, col.id, imp.id);
+                    });
+
+                    // Puxa as tarefas que pertencem a esta coluna e a este impacto
+                    const tarefasAtivas = tasks.filter(t => t.col === col.id && t.impact === imp.id && !t.completed);
+                    tarefasAtivas.forEach(task => zona.appendChild(criarElementoTarefa(task)));
+
+                    zonasContainer.appendChild(zona);
+                });
+
+                // Adiciona as tarefas concluídas no rodapé
+                const concluidasContainer = document.getElementById(`concluidas-${col.id}`);
+                const tarefasConcluidas = tasks.filter(t => t.col === col.id && t.completed);
+                tarefasConcluidas.forEach(task => concluidasContainer.appendChild(criarElementoTarefa(task)));
+            }
+        )}
+
+        // Função que cria o visual de uma tarefa individual
+        function criarElementoTarefa(task) {
+            const div = document.createElement('div');
+            
+            if (task.completed) {
+                // Visual de tarefa concluída (Rodapé)
+                div.className = "flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity mb-2";
+                div.innerHTML = `
+                    <i class="fa-solid fa-circle-check text-slate-400 shrink-0"></i>
+                    <span class="text-sm line-through font-medium text-slate-500 truncate cursor-pointer" onclick="toggleTarefa('${task.id}')">${task.title}</span>
+                `;
+            } else {
+                // Visual de tarefa ativa
+                div.className = "task-card bg-white p-3 rounded-lg shadow-sm border border-slate-200 mb-2 flex items-start gap-3 hover:shadow-md";
+                div.draggable = true;
+                
+                // Eventos de arrastar na Tarefa
+                div.addEventListener('dragstart', () => { draggedTaskId = task.id; setTimeout(() => div.style.opacity = '0.5', 0); });
+                div.addEventListener('dragend', () => { draggedTaskId = null; div.style.opacity = '1'; });
+
+                div.innerHTML = `
+                    <i class="fa-solid fa-grip-vertical text-slate-300 mt-1"></i>
+                    <div class="flex-1 flex items-start gap-3">
+                        <input type="checkbox" onclick="toggleTarefa('${task.id}')" class="mt-1 w-4 h-4 cursor-pointer accent-slate-800">
+                        <span class="text-sm font-semibold text-slate-700 leading-snug">${task.title}</span>
+                    </div>
+                `;
+            }
+            return div;
+        }
+
+        // Função para marcar/desmarcar como concluída
+        function toggleTarefa(id) {
+            const task = tasks.find(t => t.id === id);
+            if(task) {
+                task.completed = !task.completed;
+                renderBoard(); // Atualiza a tela
+            }
+        }
+
+        // Função para mudar a tarefa de lugar ao soltar
+        function moverTarefa(id, novaColuna, novoImpacto) {
+            const task = tasks.find(t => t.id === id);
+            if(task && draggedTaskId) {
+                task.col = novaColuna;
+                task.impact = novoImpacto;
+                renderBoard(); // Atualiza a tela
+            }
+        }
+
+        // Inicia o aplicativo montando a tela pela primeira vez
+        renderBoard();
+    </script>
+</body>
+</html>
