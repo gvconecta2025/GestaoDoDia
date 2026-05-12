@@ -17,11 +17,11 @@
         
         /* Base do papel */
         .papel-base {
-            background-color: #faf9f6; /* Cor de papel levemente creme */
+            background-color: #faf9f6;
             transition: background-image 0.2s ease-in-out;
         }
 
-        /* Efeito de Papel Pautado (linhas horizontais) */
+        /* Efeito de Papel Pautado */
         .papel-pautado {
             background-image: repeating-linear-gradient(transparent, transparent 31px, #e2e8f0 31px, #e2e8f0 32px);
             background-attachment: local;
@@ -32,7 +32,7 @@
             background-image: none;
         }
 
-        /* Espiral Metálico (Twin Wire) */
+        /* Espiral Metálico */
         .espiral-container { position: absolute; top: -12px; left: 0; width: 100%; display: flex; justify-content: space-evenly; z-index: 20; }
         .anel-espiral { 
             width: 8px; height: 24px; 
@@ -42,7 +42,7 @@
         }
         .furo-papel {
             position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-            width: 10px; height: 10px; background-color: #f1f5f9; /* cor do fundo da tela */
+            width: 10px; height: 10px; background-color: #f1f5f9;
             border-radius: 50%; box-shadow: inset 1px 1px 3px rgba(0,0,0,0.5);
             z-index: 10;
         }
@@ -65,7 +65,6 @@
         }
         .btn-criacao:hover { transform: scale(1.1); }
         
-        /* Ajuste visual para o texto ficar em cima da linha do papel */
         .texto-tarefa { line-height: 32px; padding-top: 2px; }
     </style>
 </head>
@@ -74,7 +73,7 @@
     <aside class="w-60 bg-slate-900 text-white flex flex-col p-6 shadow-xl hidden md:flex shrink-0 z-40">
         <div class="mb-10">
             <h1 class="text-2xl font-bold tracking-tighter">LOGO</h1>
-            <span class="text-[10px] text-slate-400 font-mono">VERSÃO 2.1</span>
+            <span class="text-[10px] text-slate-400 font-mono">VERSÃO 2.2</span>
         </div>
         <nav class="flex-1 space-y-2">
             <button class="flex items-center gap-3 w-full p-3 bg-blue-600 rounded-lg text-sm font-bold transition hover:bg-blue-700">
@@ -102,10 +101,34 @@
             <h2 class="text-lg font-bold text-slate-600 uppercase tracking-widest">Gestão do Dia</h2>
         </header>
 
-        <main class="flex-1 overflow-x-auto p-6 md:p-10 pt-12">
+        <main class="flex-1 overflow-x-auto p-6 md:p-10 pt-12 relative">
             <div class="flex gap-10 h-full min-w-max md:min-w-0" id="board">
                 </div>
         </main>
+    </div>
+
+    <div id="taskModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4 transform scale-95 transition-transform duration-200" id="taskModalContent">
+            
+            <div class="flex justify-between items-center mb-5">
+                <h3 id="modalTitle" class="text-xl font-black text-slate-800 tracking-tight">Nova Tarefa</h3>
+                <button onclick="fecharModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+
+            <div class="mb-6">
+                <label for="taskInput" class="block text-sm font-bold text-slate-500 uppercase tracking-wide mb-2">O que precisa ser feito?</label>
+                <input type="text" id="taskInput" autocomplete="off" class="w-full border-2 border-slate-200 rounded-xl p-3 text-slate-700 font-medium focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all placeholder:text-slate-300" placeholder="Ex: Enviar relatório financeiro...">
+            </div>
+
+            <div class="flex justify-end gap-3">
+                <button onclick="fecharModal()" class="px-5 py-2.5 rounded-xl text-slate-500 font-bold hover:bg-slate-100 transition-colors">Cancelar</button>
+                <button onclick="salvarTarefa()" class="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 flex items-center gap-2">
+                    <i class="fa-solid fa-check"></i> Salvar
+                </button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -113,8 +136,7 @@
         let tasks = [
             { id: '1', title: 'Comprar material de escritório', col: 'atrasado', impact: 'alto', completed: false },
             { id: '2', title: 'Reunião de alinhamento', col: 'agora', impact: 'alto', completed: false },
-            { id: '3', title: 'Revisar e-mails da semana', col: 'agora', impact: 'normal', completed: false },
-            { id: '4', title: 'Planejar viagem', col: 'antecipado', impact: 'baixo', completed: false }
+            { id: '3', title: 'Revisar e-mails da semana', col: 'agora', impact: 'normal', completed: false }
         ];
 
         const columns = [
@@ -131,9 +153,86 @@
 
         let draggedTaskId = null;
         let dragDisabled = false;
-        let linesEnabled = true; // Estado da Pauta (Ligas/Desligada)
+        let linesEnabled = true;
 
-        // Controle da Pauta (Linhas)
+        // Estado do Modal
+        let modalMode = 'create'; // 'create' ou 'edit'
+        let currentTargetCol = null;
+        let currentEditId = null;
+
+        // --- CONTROLES DO MODAL ---
+        const modal = document.getElementById('taskModal');
+        const modalContent = document.getElementById('taskModalContent');
+        const taskInput = document.getElementById('taskInput');
+        const modalTitle = document.getElementById('modalTitle');
+
+        function abrirModalCriar(colId) {
+            modalMode = 'create';
+            currentTargetCol = colId;
+            modalTitle.textContent = 'Nova Tarefa';
+            taskInput.value = '';
+            exibirModal();
+        }
+
+        function abrirModalEditar(id) {
+            const task = tasks.find(t => t.id === id);
+            if(task) {
+                modalMode = 'edit';
+                currentEditId = id;
+                modalTitle.textContent = 'Editar Tarefa';
+                taskInput.value = task.title;
+                exibirModal();
+            }
+        }
+
+        function exibirModal() {
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modalContent.classList.remove('scale-95');
+            taskInput.focus();
+        }
+
+        function fecharModal() {
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modalContent.classList.add('scale-95');
+            taskInput.blur();
+        }
+
+        function salvarTarefa() {
+            const title = taskInput.value.trim();
+            if (title === '') {
+                taskInput.focus();
+                return; // Impede salvar vazio
+            }
+
+            if (modalMode === 'create') {
+                tasks.push({
+                    id: Date.now().toString(),
+                    title: title,
+                    col: currentTargetCol,
+                    impact: 'normal',
+                    completed: false
+                });
+            } else if (modalMode === 'edit') {
+                const task = tasks.find(t => t.id === currentEditId);
+                if (task) task.title = title;
+            }
+
+            fecharModal();
+            renderBoard();
+        }
+
+        // Permite salvar apertando "Enter"
+        taskInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') salvarTarefa();
+        });
+
+        // Fechar clicando fora da caixa
+        modal.addEventListener('mousedown', function(e) {
+            if(e.target === modal) fecharModal();
+        });
+
+
+        // --- CONTROLES DE INTERFACE ---
         function toggleLines() {
             linesEnabled = !linesEnabled;
             const btnText = document.getElementById('linesText');
@@ -143,52 +242,19 @@
             if (linesEnabled) {
                 btnText.textContent = "Ocultar Pauta";
                 btnIcon.className = "fa-solid fa-bars w-4";
-                papeis.forEach(el => {
-                    el.classList.add('papel-pautado');
-                    el.classList.remove('papel-liso');
-                });
+                papeis.forEach(el => { el.classList.add('papel-pautado'); el.classList.remove('papel-liso'); });
             } else {
                 btnText.textContent = "Mostrar Pauta";
                 btnIcon.className = "fa-regular fa-file w-4";
-                papeis.forEach(el => {
-                    el.classList.add('papel-liso');
-                    el.classList.remove('papel-pautado');
-                });
+                papeis.forEach(el => { el.classList.add('papel-liso'); el.classList.remove('papel-pautado'); });
             }
         }
 
-        // Controle de Arrasto
         function setDragDisabled(disabled) {
             dragDisabled = disabled;
             document.getElementById('lockDragBtn').classList.toggle('hidden', disabled);
             document.getElementById('unlockDragBtn').classList.toggle('hidden', !disabled);
             renderBoard(); 
-        }
-
-        // Funções de CRUD (Criar, Editar, Excluir)
-        function criarTarefa(colId) {
-            const title = prompt("Digite a nova tarefa:");
-            if(title && title.trim() !== '') {
-                tasks.push({
-                    id: Date.now().toString(),
-                    title: title.trim(),
-                    col: colId,
-                    impact: 'normal', 
-                    completed: false
-                });
-                renderBoard();
-            }
-        }
-
-        function editarTarefa(id) {
-            const task = tasks.find(t => t.id === id);
-            if(task) {
-                const newTitle = prompt("Edite sua tarefa:", task.title);
-                if(newTitle && newTitle.trim() !== '') {
-                    task.title = newTitle.trim();
-                    renderBoard();
-                }
-            }
         }
 
         function excluirTarefa(id) {
@@ -198,7 +264,7 @@
             }
         }
 
-        function toggleTarefa(id) {
+        function toggleStatusTarefa(id) {
             const task = tasks.find(t => t.id === id);
             if(task) {
                 task.completed = !task.completed;
@@ -215,45 +281,36 @@
             }
         }
 
-        // Montagem da Tela
+        // --- RENDERIZAÇÃO ---
         function renderBoard() {
             const board = document.getElementById('board');
             board.innerHTML = '';
             
-            // Define qual classe o papel deve ter ao ser renderizado
             const currentPaperClass = linesEnabled ? 'papel-pautado' : 'papel-liso';
 
             columns.forEach(col => {
-                // Estrutura principal da Caderneta
                 const caderneta = document.createElement('div');
                 caderneta.className = "relative flex-1 flex flex-col min-w-[340px] max-w-[420px] mb-8";
 
-                // Espirais no Topo
                 let espiralHTML = '<div class="espiral-container">';
                 for(let i=0; i<12; i++) {
-                    espiralHTML += `
-                        <div class="relative">
-                            <div class="anel-espiral"></div>
-                            <div class="furo-papel"></div>
-                        </div>`;
+                    espiralHTML += `<div class="relative"><div class="anel-espiral"></div><div class="furo-papel"></div></div>`;
                 }
                 espiralHTML += '</div>';
 
-                // Capa superior e Miolo
                 let corpoHTML = `
                     <div class="flex-1 flex flex-col rounded-b-xl rounded-t-md shadow-2xl overflow-visible bg-white border border-gray-300 relative">
                         <div class="pt-6 pb-3 px-4 ${col.corTopo} text-white text-center rounded-t-md relative z-10 border-b-4 border-black/20">
                             <h3 class="text-xl font-black uppercase tracking-widest">${col.title}</h3>
                         </div>
                         
-                        <div class="papel-base ${currentPaperClass} flex-1 overflow-y-auto p-4 space-y-4" id="zonas-${col.id}">
-                            </div>
+                        <div class="papel-base ${currentPaperClass} flex-1 overflow-y-auto p-4 space-y-4" id="zonas-${col.id}"></div>
 
                         <div class="papel-base ${currentPaperClass} p-4 border-t-2 border-dashed border-slate-300 max-h-32 overflow-y-auto" id="concluidas-${col.id}">
                             <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Concluídas</h4>
                         </div>
 
-                        <button onclick="criarTarefa('${col.id}')" class="btn-criacao ${col.corBotao} text-white" title="Adicionar Tarefa">
+                        <button onclick="abrirModalCriar('${col.id}')" class="btn-criacao ${col.corBotao} text-white" title="Adicionar Tarefa">
                             <i class="fa-solid fa-plus text-xl"></i>
                         </button>
                     </div>
@@ -264,13 +321,11 @@
 
                 const zonasContainer = document.getElementById(`zonas-${col.id}`);
                 
-                // Monta as linhas de Impacto
                 impacts.forEach(imp => {
                     const zona = document.createElement('div');
                     zona.className = `min-h-[96px] border-l-4 rounded-r-lg p-2 transition-colors ${imp.border}`;
                     zona.innerHTML = `<span class="text-[10px] font-bold text-slate-400 uppercase bg-white/50 px-1 rounded">${imp.label}</span>`;
                     
-                    // Eventos Drag Drop
                     zona.addEventListener('dragover', e => { 
                         if(dragDisabled) return;
                         e.preventDefault(); zona.classList.add('drag-over'); 
@@ -283,29 +338,25 @@
                         moverTarefa(draggedTaskId, col.id, imp.id);
                     });
 
-                    // Insere as tarefas
                     const tarefasAtivas = tasks.filter(t => t.col === col.id && t.impact === imp.id && !t.completed);
                     tarefasAtivas.forEach(task => zona.appendChild(criarElementoTarefa(task)));
-
                     zonasContainer.appendChild(zona);
                 });
 
-                // Tarefas Concluídas
                 const concluidasContainer = document.getElementById(`concluidas-${col.id}`);
                 const tarefasConcluidas = tasks.filter(t => t.col === col.id && t.completed);
                 tarefasConcluidas.forEach(task => concluidasContainer.appendChild(criarElementoTarefa(task)));
             });
         }
 
-        // Monta o visual de cada tarefa
         function criarElementoTarefa(task) {
             const div = document.createElement('div');
             
             if (task.completed) {
                 div.className = "flex items-center gap-2 opacity-50 mb-1 pl-2 group";
                 div.innerHTML = `
-                    <i class="fa-solid fa-check text-slate-400 shrink-0 cursor-pointer" onclick="toggleTarefa('${task.id}')"></i>
-                    <span class="text-sm line-through font-medium text-slate-500 truncate texto-tarefa">${task.title}</span>
+                    <i class="fa-solid fa-check text-slate-400 shrink-0 cursor-pointer" onclick="toggleStatusTarefa('${task.id}')"></i>
+                    <span class="text-sm line-through font-medium text-slate-500 truncate texto-tarefa cursor-pointer" onclick="toggleStatusTarefa('${task.id}')">${task.title}</span>
                     <i class="fa-solid fa-trash text-red-500 text-xs opacity-0 group-hover:opacity-100 cursor-pointer ml-auto" onclick="excluirTarefa('${task.id}')"></i>
                 `;
             } else {
@@ -320,19 +371,18 @@
 
                 div.innerHTML = `
                     <i class="fa-solid fa-grip-vertical text-slate-300 mt-2 shrink-0 ${dragDisabled ? 'hidden' : 'cursor-grab'}"></i>
-                    <input type="checkbox" onclick="toggleTarefa('${task.id}')" class="mt-2.5 w-4 h-4 cursor-pointer accent-slate-800 shrink-0">
+                    <input type="checkbox" onclick="toggleStatusTarefa('${task.id}')" class="mt-2.5 w-4 h-4 cursor-pointer accent-slate-800 shrink-0">
                     <span class="flex-1 text-sm font-semibold texto-tarefa overflow-hidden text-ellipsis">${task.title}</span>
                     
-                    <div class="flex gap-3 mt-2 opacity-0 group-hover:opacity-100 transition-opacity md:opacity-0 opacity-100 shrink-0">
-                        <button onclick="editarTarefa('${task.id}')" title="Editar"><i class="fa-solid fa-pen text-blue-500 text-xs hover:text-blue-700"></i></button>
-                        <button onclick="excluirTarefa('${task.id}')" title="Excluir"><i class="fa-solid fa-trash text-red-500 text-xs hover:text-red-700"></i></button>
+                    <div class="flex gap-3 mt-2 opacity-0 group-hover:opacity-100 transition-opacity md:opacity-0 opacity-100 shrink-0 bg-white/80 px-2 rounded-lg">
+                        <button onclick="abrirModalEditar('${task.id}')" title="Editar" class="p-1"><i class="fa-solid fa-pen text-blue-500 text-sm hover:text-blue-700 transition-colors"></i></button>
+                        <button onclick="excluirTarefa('${task.id}')" title="Excluir" class="p-1"><i class="fa-solid fa-trash text-red-500 text-sm hover:text-red-700 transition-colors"></i></button>
                     </div>
                 `;
             }
             return div;
         }
 
-        // Inicializa
         renderBoard();
     </script>
 </body>
