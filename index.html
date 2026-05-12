@@ -39,7 +39,9 @@
         .task-card.dragging { opacity: 0.4; }
         .task-card:active { cursor: grabbing; transform: scale(0.99); }
         .task-card[draggable="false"] { cursor: default; }
-        .task-title-wrap { line-height: 32px; white-space: normal; word-break: break-word; }
+        
+        /* Ajuste fino da quebra de texto */
+        .task-title-wrap { line-height: 32px; white-space: normal; overflow-wrap: break-word; word-break: normal; }
 
         .btn-criacao { position: absolute; bottom: -10px; right: 20px; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: transform 0.2s; z-index: 30; }
         .btn-criacao:hover { transform: scale(1.1); }
@@ -100,7 +102,7 @@
         <div class="mb-10 flex justify-between items-start relative">
             <div>
                 <h1 class="text-2xl font-bold tracking-tighter">LOGO</h1>
-                <span class="text-[10px] text-slate-400 font-mono">VERSÃO 7.0 PWA</span>
+                <span class="text-[10px] text-slate-400 font-mono">VERSÃO 8.0 PWA</span>
             </div>
             <div id="syncStatus" class="text-blue-400" title="Sincronizado"><i class="fa-solid fa-cloud-check"></i></div>
             <button onclick="toggleMobileMenu()" class="md:hidden absolute -right-2 -top-2 text-slate-400 hover:text-white p-2"><i class="fa-solid fa-xmark text-xl"></i></button>
@@ -138,7 +140,7 @@
 
         <main class="flex-1 flex overflow-hidden p-0 md:p-10 pt-6 md:pt-8 relative w-full">
             
-            <!-- CADERNETAS (w-full flex-none para preencher tela mobile perfeitamente) -->
+            <!-- CADERNETAS (w-screen para preencher tela no mobile perfeitamente) -->
             <div class="flex gap-0 md:gap-10 h-full w-full overflow-x-auto hide-scroll-x snap-x snap-mandatory pb-24 md:pb-6 scroll-smooth" id="board"></div>
 
             <!-- CALENDÁRIO -->
@@ -187,7 +189,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE SUBTAREFAS (AGORA ARRASTÁVEL) -->
+    <!-- MODAL DE SUBTAREFAS -->
     <div id="subtasksModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4 transform scale-95 transition-transform duration-200 flex flex-col max-h-[90vh]" id="subtasksModalContent">
             <div class="flex justify-between items-center mb-2 shrink-0">
@@ -203,7 +205,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE PROJETOS (MULTI-VIEW) -->
+    <!-- MODAL DE PROJETOS -->
     <div id="projectsModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4 transform scale-95 transition-transform duration-200 flex flex-col max-h-[90vh]" id="projectsModalContent">
             <div class="flex justify-between items-center mb-5 shrink-0">
@@ -330,13 +332,11 @@
         let globalTags = JSON.parse(localStorage.getItem('gestaodia_tags')) || [];
         let allTasks = JSON.parse(localStorage.getItem('gestaodia_tasks')) || [];
         let projects = JSON.parse(localStorage.getItem('gestaodia_projects')) || [{id: 'default', name: 'Meu Dia'}];
-        
-        // Multi-view Projects: Agora é um array
         let activeViewProjects = JSON.parse(localStorage.getItem('gestaodia_active_projects')) || ['default'];
         let currentTheme = localStorage.getItem('gestaodia_theme') || 'claro';
         let knownAccounts = JSON.parse(localStorage.getItem('gestaodia_accounts')) || [];
 
-        // Garantia 'default' e integridade
+        // Garantia 'default'
         allTasks.forEach(t => { if(!t.projectIds) t.projectIds = []; if(!t.projectIds.includes('default')) t.projectIds.push('default'); });
         if(activeViewProjects.length === 0) activeViewProjects = ['default'];
 
@@ -404,11 +404,8 @@
                 const data = docRef.data();
                 if (data.tasks) { allTasks = data.tasks; allTasks.forEach(t => { if(!t.projectIds) t.projectIds = []; if(!t.projectIds.includes('default')) t.projectIds.push('default'); }); }
                 if (data.tags) globalTags = data.tags; if (data.projects) projects = data.projects;
-                
-                // Limpa visualizações de projetos excluídos no firebase
                 activeViewProjects = activeViewProjects.filter(id => projects.some(p => p.id === id));
                 if(activeViewProjects.length === 0) activeViewProjects = ['default'];
-                
                 saveData(); renderBoard(); atualizarNomeProjetoHeader();
             }
         }
@@ -438,9 +435,7 @@
         }
         
         function toggleProjectView(id) {
-            if(activeViewProjects.includes(id)) {
-                if(activeViewProjects.length > 1) activeViewProjects = activeViewProjects.filter(p => p !== id);
-            } else { activeViewProjects.push(id); }
+            if(activeViewProjects.includes(id)) { if(activeViewProjects.length > 1) activeViewProjects = activeViewProjects.filter(p => p !== id); } else { activeViewProjects.push(id); }
             localStorage.setItem('gestaodia_active_projects', JSON.stringify(activeViewProjects));
             renderProjectsList(); renderBoard(); atualizarNomeProjetoHeader();
         }
@@ -452,15 +447,9 @@
         
         function atualizarNomeProjetoHeader() { 
             const container = document.getElementById('headerProjectName'); container.innerHTML = '';
-            activeViewProjects.forEach(id => {
-                const p = projects.find(proj => proj.id === id);
-                if(p) container.innerHTML += `<span class="badge bg-blue-100 text-blue-700 px-2 py-1">${p.name}</span>`;
-            });
+            activeViewProjects.forEach(id => { const p = projects.find(proj => proj.id === id); if(p) container.innerHTML += `<span class="badge bg-blue-100 text-blue-700 px-2 py-1">${p.name}</span>`; });
         }
 
-        // ==========================================
-        // TEMAS
-        // ==========================================
         function abrirModalTemas() { document.getElementById('temasModal').classList.remove('opacity-0', 'pointer-events-none'); }
         function setTema(themeName) { document.body.className = `h-screen flex overflow-hidden font-sans text-slate-800 transition-colors duration-300 theme-${themeName}`; currentTheme = themeName; localStorage.setItem('gestaodia_theme', themeName); fecharModal('temasModal'); }
 
@@ -474,9 +463,7 @@
             modalMode = 'create'; currentTargetCol = colId;
             document.getElementById('modalTitle').textContent = 'Nova Tarefa'; document.getElementById('taskInput').value = '';
             document.getElementById('taskStart').value = ''; document.getElementById('taskEnd').value = '';
-            renderTagsCheckboxes([]); 
-            // Sugere os projetos que o usuário está visualizando agora (sempre incluindo default por trás)
-            renderTaskProjectsCheckboxes([...new Set(['default', ...activeViewProjects])]);
+            renderTagsCheckboxes([]); renderTaskProjectsCheckboxes([...new Set(['default', ...activeViewProjects])]);
             document.getElementById('taskModal').classList.remove('opacity-0', 'pointer-events-none');
             setTimeout(() => document.getElementById('taskInput').focus(), 100);
         }
@@ -496,7 +483,6 @@
             const container = document.getElementById('projectsContainerModal'); container.innerHTML = '';
             projects.forEach(p => {
                 const checked = selectedIds.includes(p.id) ? 'checked' : '';
-                // Desabilita desmarcar "Meu Dia"
                 const disabled = p.id === 'default' ? 'disabled' : '';
                 container.innerHTML += `<label class="cursor-pointer inline-flex items-center gap-1 bg-slate-50 border border-slate-200 px-3 py-1 rounded-full hover:bg-slate-100 transition-colors ${disabled ? 'opacity-60' : ''}"><input type="checkbox" value="${p.id}" class="proj-checkbox accent-blue-600" ${checked} ${disabled}><span class="text-xs font-semibold text-slate-600">${p.name}</span></label>`;
             });
@@ -507,7 +493,7 @@
             const start = document.getElementById('taskStart').value; const end = document.getElementById('taskEnd').value;
             const selectedTags = Array.from(document.querySelectorAll('.tag-checkbox:checked')).map(cb => cb.value);
             let selectedProjs = Array.from(document.querySelectorAll('.proj-checkbox:checked')).map(cb => cb.value);
-            if(!selectedProjs.includes('default')) selectedProjs.push('default'); // Default Absoluto
+            if(!selectedProjs.includes('default')) selectedProjs.push('default');
 
             if (modalMode === 'create') {
                 allTasks.push({ id: Date.now().toString(), projectIds: selectedProjs, title: title, col: currentTargetCol, impact: 'normal', completed: false, start: start, end: end, tags: selectedTags, subtasks: [], order: allTasks.length });
@@ -519,10 +505,9 @@
         }
 
         // ==========================================
-        // SUBTAREFAS (ARRASTÁVEIS NO MODAL)
+        // SUBTAREFAS (MODAL)
         // ==========================================
-        let currentSubtaskManageId = null;
-        let draggedSubtaskIdx = null;
+        let currentSubtaskManageId = null; let draggedSubtaskIdx = null;
 
         function abrirModalSubtarefas(taskId) { const task = allTasks.find(t => t.id === taskId); if(task) { currentSubtaskManageId = taskId; document.getElementById('subtaskTaskTitle').textContent = `Ref: ${task.title}`; if(!task.subtasks) task.subtasks = []; renderManageSubtasksList(); document.getElementById('subtasksModal').classList.remove('opacity-0', 'pointer-events-none'); setTimeout(() => document.getElementById('newSubtaskInput').focus(), 100); } }
         
@@ -530,38 +515,19 @@
             const task = allTasks.find(t => t.id === currentSubtaskManageId); const container = document.getElementById('manageSubtasksList'); container.innerHTML = '';
             task.subtasks.forEach((sub, idx) => {
                 const checked = sub.done ? 'checked' : ''; const strike = sub.done ? 'line-through text-slate-400' : 'text-slate-700';
-                
                 const el = document.createElement('div');
                 el.className = `flex items-center gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200 group transition-all`;
                 el.draggable = !dragDisabled;
-                
-                el.innerHTML = `
-                    <i class="fa-solid fa-grip-vertical text-slate-300 shrink-0 ${dragDisabled ? 'hidden' : 'cursor-grab'} hover:text-slate-500 mr-1"></i>
-                    <input type="checkbox" ${checked} class="accent-blue-600 w-4 h-4 cursor-pointer shrink-0 subtask-cb">
-                    <span class="text-sm flex-1 font-semibold ${strike} cursor-pointer task-title-wrap subtask-title">${sub.title}</span>
-                    <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                        <button type="button" class="text-blue-400 hover:text-blue-600 p-1 subtask-edit"><i class="fa-solid fa-pen"></i></button>
-                        <button type="button" class="text-red-400 hover:text-red-600 p-1 subtask-del"><i class="fa-solid fa-trash"></i></button>
-                    </div>`;
-                
-                // Eventos DnD e Ações
+                el.innerHTML = `<i class="fa-solid fa-grip-vertical text-slate-300 shrink-0 ${dragDisabled ? 'hidden' : 'cursor-grab'} hover:text-slate-500 mr-1"></i><input type="checkbox" ${checked} class="accent-blue-600 w-4 h-4 cursor-pointer shrink-0 subtask-cb"><span class="text-sm flex-1 font-semibold ${strike} cursor-pointer task-title-wrap subtask-title">${sub.title}</span><div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"><button type="button" class="text-blue-400 hover:text-blue-600 p-1 subtask-edit"><i class="fa-solid fa-pen"></i></button><button type="button" class="text-red-400 hover:text-red-600 p-1 subtask-del"><i class="fa-solid fa-trash"></i></button></div>`;
                 el.querySelector('.subtask-cb').addEventListener('change', () => toggleSubtaskStatus(idx));
                 el.querySelector('.subtask-title').addEventListener('click', () => editarSubtaskNome(idx));
                 el.querySelector('.subtask-edit').addEventListener('click', () => editarSubtaskNome(idx));
                 el.querySelector('.subtask-del').addEventListener('click', () => removerSubtask(idx));
-
                 el.addEventListener('dragstart', () => { draggedSubtaskIdx = idx; el.style.opacity = '0.5'; });
                 el.addEventListener('dragend', () => { draggedSubtaskIdx = null; el.style.opacity = '1'; });
                 el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('border-blue-400'); });
                 el.addEventListener('dragleave', () => { el.classList.remove('border-blue-400'); });
-                el.addEventListener('drop', e => {
-                    e.preventDefault(); el.classList.remove('border-blue-400');
-                    if(draggedSubtaskIdx !== null && draggedSubtaskIdx !== idx) {
-                        const draggedItem = task.subtasks.splice(draggedSubtaskIdx, 1)[0];
-                        task.subtasks.splice(idx, 0, draggedItem);
-                        renderManageSubtasksList(); renderBoard(); saveData();
-                    }
-                });
+                el.addEventListener('drop', e => { e.preventDefault(); el.classList.remove('border-blue-400'); if(draggedSubtaskIdx !== null && draggedSubtaskIdx !== idx) { const draggedItem = task.subtasks.splice(draggedSubtaskIdx, 1)[0]; task.subtasks.splice(idx, 0, draggedItem); renderManageSubtasksList(); renderBoard(); saveData(); } });
                 container.appendChild(el);
             });
         }
@@ -576,13 +542,12 @@
         function renderBoard() {
             const board = document.getElementById('board'); board.innerHTML = '';
             const currentPaperClass = linesEnabled ? 'papel-pautado' : 'papel-liso';
-            
-            // FILTRA TAREFAS BASEADO NAS VISUALIZAÇÕES ATIVAS
             const currentTasks = allTasks.filter(t => t.projectIds && t.projectIds.some(pid => activeViewProjects.includes(pid)));
 
             columns.forEach(col => {
                 const outerWrapper = document.createElement('div'); 
-                outerWrapper.className = "w-full min-w-full md:min-w-[340px] md:max-w-[420px] shrink-0 snap-center h-full px-4 md:px-0 flex justify-center md:flex-1";
+                // w-[100vw] assegura o enquadramento exato no mobile
+                outerWrapper.className = "min-w-[100vw] max-w-[100vw] md:w-auto flex-none md:flex-1 md:min-w-[340px] md:max-w-[420px] snap-center h-full px-4 md:px-0 flex justify-center";
                 outerWrapper.id = `col-container-${col.id}`;
 
                 let espiralHTML = '<div class="espiral-container">'; for(let i=0; i<12; i++) espiralHTML += `<div class="relative"><div class="anel-espiral"></div><div class="furo-papel"></div></div>`; espiralHTML += '</div>';
@@ -633,7 +598,7 @@
                 div.className = "task-card flex items-start gap-2 group mb-2"; div.draggable = !dragDisabled;
                 div.addEventListener('dragstart', (e) => { if(dragDisabled) { e.preventDefault(); return; } draggedTaskId = task.id; div.classList.add('dragging'); });
                 div.addEventListener('dragend', () => { draggedTaskId = null; div.classList.remove('dragging'); });
-                div.innerHTML = `<i class="fa-solid fa-grip-vertical text-slate-300 shrink-0 mt-[8px] ${dragDisabled ? 'hidden' : 'cursor-grab'} hover:text-slate-500"></i><input type="checkbox" onclick="toggleStatusTarefa('${task.id}')" class="w-4 h-4 cursor-pointer accent-slate-800 shrink-0 mt-[8px]"><div class="flex-1 cursor-pointer" onclick="abrirModalEditar('${task.id}')"><span class="text-sm font-semibold text-slate-800 task-title-wrap inline">${task.title}</span><div class="inline-block leading-[32px]">${extrasHTML} ${tagsHTML}</div></div><div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 bg-slate-100/90 px-1 rounded mt-1"><button onclick="excluirTarefa('${task.id}')"><i class="fa-solid fa-trash text-red-500 text-xs hover:text-red-700"></i></button></div>`;
+                div.innerHTML = `<i class="fa-solid fa-grip-vertical text-slate-300 shrink-0 mt-[8px] ${dragDisabled ? 'hidden' : 'cursor-grab'} hover:text-slate-500"></i><input type="checkbox" onclick="toggleStatusTarefa('${task.id}')" class="w-4 h-4 cursor-pointer accent-slate-800 shrink-0 mt-[8px]"><div class="flex-1 cursor-pointer min-w-0" onclick="abrirModalEditar('${task.id}')"><span class="text-sm font-semibold text-slate-800 task-title-wrap inline">${task.title}</span><div class="inline-block leading-[32px]">${extrasHTML} ${tagsHTML}</div></div><div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 bg-slate-100/90 px-1 rounded mt-1"><button onclick="excluirTarefa('${task.id}')"><i class="fa-solid fa-trash text-red-500 text-xs hover:text-red-700"></i></button></div>`;
             }
             return div;
         }
@@ -654,7 +619,7 @@
         function abrirModalTags() { renderColorPalette(); renderTagsList(); cancelarEdicaoTag(); document.getElementById('tagsModal').classList.remove('opacity-0', 'pointer-events-none'); }
         function renderColorPalette() { const container = document.getElementById('colorPalette'); container.innerHTML = ''; colorPalette.forEach(c => { const isSel = currentTagColor === c ? 'border-black transform scale-110' : 'border-transparent'; container.innerHTML += `<div class="w-6 h-6 rounded-full cursor-pointer border-2 ${c.split(' ')[0]} ${isSel}" onclick="selecionarCorTag('${c}')"></div>`; }); }
         function selecionarCorTag(color) { currentTagColor = color; renderColorPalette(); }
-        function salvarEtiqueta() { const name = document.getElementById('tagNameInput').value.trim(); if (!name) return; if (editingTagId) { const tag = globalTags.find(t => t.id === editingTagId); if (tag) { tag.name = name; tag.color = currentTagColor; } } else globalTags.push({ id: 'tag' + Date.now(), name: name, color: currentTagColor }); cancelarEdicaoTag(); renderTagsList(); renderBoard(); saveData(); }
+        function salvarEtiqueta() { const name = document.getElementById('tagNameInput').value.trim(); if (!name) { fecharModal('tagsModal'); return; } if (editingTagId) { const tag = globalTags.find(t => t.id === editingTagId); if (tag) { tag.name = name; tag.color = currentTagColor; } } else globalTags.push({ id: 'tag' + Date.now(), name: name, color: currentTagColor }); cancelarEdicaoTag(); renderTagsList(); renderBoard(); saveData(); }
         function iniciarEdicaoTag(id) { const tag = globalTags.find(t => t.id === id); if (tag) { editingTagId = id; document.getElementById('tagNameInput').value = tag.name; currentTagColor = tag.color; document.getElementById('tagFormTitle').textContent = 'Editar Etiqueta'; document.getElementById('saveTagBtn').textContent = 'Atualizar'; document.getElementById('cancelTagEditBtn').classList.remove('hidden'); renderColorPalette(); } }
         function cancelarEdicaoTag() { editingTagId = null; document.getElementById('tagNameInput').value = ''; currentTagColor = colorPalette[Math.floor(Math.random() * colorPalette.length)]; document.getElementById('tagFormTitle').textContent = 'Criar Etiqueta'; document.getElementById('saveTagBtn').textContent = 'Adicionar'; document.getElementById('cancelTagEditBtn').classList.add('hidden'); renderColorPalette(); }
         function excluirTag(id) { if(confirm("Remover esta etiqueta de todas as tarefas?")) { globalTags = globalTags.filter(t => t.id !== id); allTasks.forEach(task => { if (task.tags) task.tags = task.tags.filter(tId => tId !== id); }); if(editingTagId === id) cancelarEdicaoTag(); renderTagsList(); renderBoard(); saveData(); } }
