@@ -3,10 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestão do Dia - PRO</title>
+    <title>Gestão do Dia - PRO + Cloud</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore-compat.js"></script>
 
     <style>
         ::-webkit-scrollbar { width: 6px; }
@@ -14,20 +19,24 @@
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
+        /* Estilos do Papel e Pauta (Múltiplos de 32px para alinhamento perfeito) */
         .papel-base { background-color: #faf9f6; transition: background-image 0.2s; }
         .papel-pautado { background-image: repeating-linear-gradient(transparent, transparent 31px, #cbd5e1 31px, #cbd5e1 32px); background-attachment: local; background-position: 0 0; }
         .papel-liso { background-image: none; }
 
+        /* Design do Espiral Duplo */
         .espiral-container { position: absolute; top: -12px; left: 0; width: 100%; display: flex; justify-content: space-evenly; z-index: 20; }
         .anel-espiral { width: 8px; height: 24px; background: linear-gradient(to right, #94a3b8, #e2e8f0, #94a3b8); border-radius: 10px; border: 1px solid #64748b; box-shadow: 1px 2px 3px rgba(0,0,0,0.3); }
         .furo-papel { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 10px; height: 10px; background-color: #f1f5f9; border-radius: 50%; box-shadow: inset 1px 1px 3px rgba(0,0,0,0.5); z-index: 10; }
 
+        /* Drag and Drop e Cartões */
         .drag-over { background-color: rgba(254, 252, 232, 0.8) !important; border-style: dashed; }
-        .task-card { cursor: grab; background-color: transparent; min-height: 32px; line-height: 32px; margin-bottom: 0px; }
+        .task-card { cursor: grab; background-color: transparent; min-height: 32px; margin-bottom: 0px; }
         .task-card.dragging { opacity: 0.4; }
         .task-card:active { cursor: grabbing; transform: scale(0.99); }
         .task-card[draggable="false"] { cursor: default; }
         
+        /* Botão Flutuante de Criação */
         .btn-criacao {
             position: absolute; bottom: -20px; right: 20px; width: 48px; height: 48px;
             display: flex; align-items: center; justify-content: center;
@@ -38,18 +47,44 @@
         
         .badge { font-size: 0.65rem; padding: 2px 6px; border-radius: 12px; line-height: 1; vertical-align: middle; display: inline-flex; align-items: center; gap: 4px; margin-left: 6px;}
 
-        /* Estilo para a paleta de cores no modal de tags */
-        .color-option { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; transition: transform 0.1s; border: 2px solid transparent; }
-        .color-option:hover { transform: scale(1.1); }
-        .color-option.selected { border-color: #0f172a; transform: scale(1.1); box-shadow: 0 0 0 2px white, 0 0 0 4px #0f172a; }
+        /* Loader Animation */
+        .loader { border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #3b82f6; width: 24px; height: 24px; -webkit-animation: spin 1s linear infinite; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="bg-slate-200 h-screen flex overflow-hidden font-sans text-slate-800">
 
+    <div id="loginOverlay" class="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[100] flex items-center justify-center transition-opacity duration-300">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 text-center relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
+            <h2 class="text-3xl font-black text-slate-800 tracking-tighter mb-2">Gestão do Dia</h2>
+            <p class="text-sm text-slate-500 font-medium mb-6">Acesse para sincronizar na nuvem</p>
+            
+            <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4 text-left">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">E-mail</label>
+                    <input type="email" id="emailInput" required class="w-full border-2 border-slate-200 rounded-xl p-3 text-sm focus:border-blue-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Senha</label>
+                    <input type="password" id="passwordInput" required class="w-full border-2 border-slate-200 rounded-xl p-3 text-sm focus:border-blue-500 outline-none">
+                </div>
+                <div id="loginError" class="text-red-500 text-xs font-bold hidden">Credenciais inválidas.</div>
+                <button type="submit" id="loginBtn" class="w-full bg-slate-900 text-white font-bold rounded-xl p-3 hover:bg-slate-800 transition-colors flex justify-center items-center gap-2">
+                    Entrar <i class="fa-solid fa-arrow-right"></i>
+                </button>
+                <p class="text-xs text-center text-slate-400 mt-4">Digite um e-mail e senha. Se não existir, a conta será criada automaticamente.</p>
+            </form>
+        </div>
+    </div>
+
     <aside class="w-60 bg-slate-900 text-white flex flex-col p-6 shadow-xl hidden md:flex shrink-0 z-40">
-        <div class="mb-10">
-            <h1 class="text-2xl font-bold tracking-tighter">LOGO</h1>
-            <span class="text-[10px] text-slate-400 font-mono">VERSÃO 3.1 PRO</span>
+        <div class="mb-10 flex justify-between items-start">
+            <div>
+                <h1 class="text-2xl font-bold tracking-tighter">LOGO</h1>
+                <span class="text-[10px] text-slate-400 font-mono">VERSÃO 4.0 CLOUD</span>
+            </div>
+            <div id="syncStatus" class="text-blue-400" title="Sincronizado"><i class="fa-solid fa-cloud-check"></i></div>
         </div>
         <nav class="flex-1 space-y-2">
             <button class="flex items-center gap-3 w-full p-3 bg-blue-600 rounded-lg text-sm font-bold transition hover:bg-blue-700">
@@ -57,14 +92,8 @@
             </button>
             <div class="pt-6 mt-6 border-t border-slate-700 space-y-2">
                 <p class="text-xs font-bold text-slate-500 uppercase">Ajustes Rápidos</p>
-                <button id="toggleLinesBtn" onclick="toggleLines()" class="flex items-center gap-3 w-full p-3 bg-indigo-600/20 text-indigo-400 rounded-lg text-sm font-bold transition hover:bg-indigo-600 hover:text-white">
+                <button onclick="toggleLines()" class="flex items-center gap-3 w-full p-3 bg-indigo-600/20 text-indigo-400 rounded-lg text-sm font-bold transition hover:bg-indigo-600 hover:text-white">
                     <i class="fa-solid fa-bars w-4" id="linesIcon"></i> <span id="linesText">Ocultar Pauta</span>
-                </button>
-                <button id="lockDragBtn" onclick="setDragDisabled(true)" class="flex items-center gap-3 w-full p-3 bg-red-600/20 text-red-400 rounded-lg text-sm font-bold transition hover:bg-red-600 hover:text-white">
-                    <i class="fa-solid fa-lock w-4"></i> Travar Arrasto
-                </button>
-                <button id="unlockDragBtn" onclick="setDragDisabled(false)" class="flex items-center gap-3 w-full p-3 bg-green-600/20 text-green-400 rounded-lg text-sm font-bold transition hover:bg-green-600 hover:text-white hidden">
-                    <i class="fa-solid fa-lock-open w-4"></i> Destravar Arrasto
                 </button>
             </div>
             <div class="pt-6 mt-6 border-t border-slate-700">
@@ -73,48 +102,84 @@
                 </button>
             </div>
         </nav>
+        <button onclick="logout()" class="flex items-center gap-3 p-3 text-slate-400 hover:text-red-400 text-sm transition pt-6 border-t border-slate-700">
+            <i class="fa-solid fa-right-from-bracket w-4"></i> Sair
+        </button>
     </aside>
 
     <div class="flex-1 flex flex-col min-w-0">
         <header class="h-16 bg-white border-b flex items-center justify-between px-8 shadow-sm shrink-0 z-30">
             <h2 class="text-lg font-bold text-slate-600 uppercase tracking-widest">Gestão do Dia</h2>
+            <div id="userGreeting" class="text-sm font-bold text-slate-500"></div>
         </header>
 
-        <main class="flex-1 overflow-x-auto p-6 md:p-10 pt-12 relative">
-            <div class="flex gap-10 h-full min-w-max md:min-w-0" id="board">
+        <main class="flex-1 overflow-x-auto p-6 md:p-10 pt-12 relative flex gap-10">
+            <div class="flex gap-10 h-full shrink-0" id="board"></div>
+
+            <aside class="w-80 shrink-0 bg-white rounded-2xl shadow-xl border border-slate-200 h-fit p-6 hidden lg:block sticky top-0">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-lg font-black text-slate-800">Calendário</h3>
+                    <div class="flex gap-2">
+                        <button class="text-slate-400 hover:text-blue-600"><i class="fa-solid fa-chevron-left"></i></button>
+                        <span class="text-sm font-bold text-slate-600" id="calMonth">Mês Atual</span>
+                        <button class="text-slate-400 hover:text-blue-600"><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
                 </div>
+                <div class="grid grid-cols-7 gap-1 text-center mb-2">
+                    <span class="text-[10px] font-bold text-slate-400">D</span><span class="text-[10px] font-bold text-slate-400">S</span>
+                    <span class="text-[10px] font-bold text-slate-400">T</span><span class="text-[10px] font-bold text-slate-400">Q</span>
+                    <span class="text-[10px] font-bold text-slate-400">Q</span><span class="text-[10px] font-bold text-slate-400">S</span>
+                    <span class="text-[10px] font-bold text-slate-400">S</span>
+                </div>
+                <div class="grid grid-cols-7 gap-1 text-center" id="calendarGrid">
+                    </div>
+            </aside>
         </main>
     </div>
 
     <div id="taskModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 mx-4 transform scale-95 transition-transform duration-200" id="taskModalContent">
-            <div class="flex justify-between items-center mb-5">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 mx-4 transform scale-95 transition-transform duration-200 max-h-[95vh] flex flex-col" id="taskModalContent">
+            
+            <div class="flex justify-between items-center mb-5 shrink-0">
                 <h3 id="modalTitle" class="text-xl font-black text-slate-800 tracking-tight">Nova Tarefa</h3>
                 <button onclick="fecharModal('taskModal')" class="text-slate-400 hover:text-slate-600 transition-colors"><i class="fa-solid fa-xmark text-xl"></i></button>
             </div>
-            <div class="mb-4">
-                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Título</label>
-                <input type="text" id="taskInput" autocomplete="off" class="w-full border-2 border-slate-200 rounded-xl p-3 text-slate-700 font-medium focus:border-blue-500 outline-none transition-all placeholder:text-slate-300">
-            </div>
-            <div class="flex gap-4 mb-4">
-                <div class="flex-1">
-                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Início</label>
-                    <input type="date" id="taskStart" class="w-full border-2 border-slate-200 rounded-xl p-2 text-sm text-slate-700 focus:border-blue-500 outline-none">
+
+            <div class="overflow-y-auto pr-2 flex-1 space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Título</label>
+                    <input type="text" id="taskInput" autocomplete="off" class="w-full border-2 border-slate-200 rounded-xl p-3 text-slate-700 font-medium focus:border-blue-500 outline-none">
                 </div>
-                <div class="flex-1">
-                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Prazo (Fim)</label>
-                    <input type="date" id="taskEnd" class="w-full border-2 border-slate-200 rounded-xl p-2 text-sm text-slate-700 focus:border-blue-500 outline-none">
-                </div>
-            </div>
-            <div class="mb-6">
-                <div class="flex justify-between items-center mb-2">
-                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide">Etiquetas</label>
-                    <button onclick="fecharModal('taskModal'); abrirModalTags();" class="text-xs font-bold text-blue-500 hover:text-blue-700"><i class="fa-solid fa-gear"></i> Gerenciar</button>
-                </div>
-                <div id="tagsContainer" class="flex flex-wrap gap-2">
+
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2"><i class="fa-solid fa-list-check"></i> Subtarefas</label>
+                    <div id="subtasksContainer" class="space-y-2 mb-3"></div>
+                    <div class="flex gap-2">
+                        <input type="text" id="subtaskInput" placeholder="Adicionar subtarefa e teclar Enter..." class="w-full text-sm border-2 border-slate-200 rounded-lg p-2 focus:border-blue-500 outline-none" onkeypress="handleSubtaskEnter(event)">
+                        <button type="button" onclick="addSubtask()" class="bg-slate-200 text-slate-600 px-3 rounded-lg hover:bg-slate-300"><i class="fa-solid fa-plus"></i></button>
                     </div>
+                </div>
+
+                <div class="flex gap-4">
+                    <div class="flex-1">
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Início</label>
+                        <input type="date" id="taskStart" class="w-full border-2 border-slate-200 rounded-xl p-2 text-sm text-slate-700 focus:border-blue-500 outline-none">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Prazo (Fim)</label>
+                        <input type="date" id="taskEnd" class="w-full border-2 border-slate-200 rounded-xl p-2 text-sm text-slate-700 focus:border-blue-500 outline-none">
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide">Etiquetas</label>
+                    </div>
+                    <div id="tagsContainer" class="flex flex-wrap gap-2"></div>
+                </div>
             </div>
-            <div class="flex justify-end gap-3 pt-4 border-t border-slate-100">
+
+            <div class="flex justify-end gap-3 pt-4 border-t border-slate-100 shrink-0 mt-4">
                 <button onclick="fecharModal('taskModal')" class="px-5 py-2.5 rounded-xl text-slate-500 font-bold hover:bg-slate-100 transition-colors">Cancelar</button>
                 <button onclick="salvarTarefa()" class="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30">Salvar</button>
             </div>
@@ -123,202 +188,195 @@
 
     <div id="tagsModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4 transform scale-95 transition-transform duration-200 flex flex-col max-h-[90vh]" id="tagsModalContent">
-            
             <div class="flex justify-between items-center mb-5 shrink-0">
                 <h3 class="text-xl font-black text-slate-800 tracking-tight"><i class="fa-solid fa-tags text-blue-500 mr-2"></i> Etiquetas</h3>
-                <button onclick="fecharModal('tagsModal')" class="text-slate-400 hover:text-slate-600 transition-colors"><i class="fa-solid fa-xmark text-xl"></i></button>
+                <button onclick="fecharModal('tagsModal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
             </div>
-
+            
             <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 shrink-0">
-                <h4 id="tagFormTitle" class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Criar Nova Etiqueta</h4>
-                <div class="flex gap-2 mb-3">
-                    <input type="text" id="tagNameInput" placeholder="Nome da etiqueta..." class="flex-1 border-2 border-slate-200 rounded-lg p-2 text-sm text-slate-700 focus:border-blue-500 outline-none">
-                </div>
+                <h4 id="tagFormTitle" class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Criar Etiqueta</h4>
+                <div class="flex gap-2 mb-3"><input type="text" id="tagNameInput" placeholder="Nome..." class="flex-1 border-2 border-slate-200 rounded-lg p-2 text-sm focus:border-blue-500 outline-none"></div>
                 <div class="mb-4">
                     <p class="text-[10px] font-bold text-slate-400 uppercase mb-2">Cor</p>
-                    <div id="colorPalette" class="flex flex-wrap gap-2">
-                        </div>
+                    <div id="colorPalette" class="flex flex-wrap gap-2"></div>
                 </div>
                 <div class="flex justify-end gap-2">
-                    <button id="cancelTagEditBtn" onclick="cancelarEdicaoTag()" class="hidden px-4 py-1.5 rounded-lg text-sm text-slate-500 font-bold hover:bg-slate-200 transition-colors">Cancelar</button>
-                    <button id="saveTagBtn" onclick="salvarEtiqueta()" class="px-4 py-1.5 rounded-lg text-sm bg-slate-800 text-white font-bold hover:bg-slate-700 transition-colors shadow-sm">Adicionar</button>
+                    <button id="cancelTagEditBtn" onclick="cancelarEdicaoTag()" class="hidden px-4 py-1.5 rounded-lg text-sm text-slate-500 font-bold hover:bg-slate-200">Cancelar</button>
+                    <button id="saveTagBtn" onclick="salvarEtiqueta()" class="px-4 py-1.5 rounded-lg text-sm bg-slate-800 text-white font-bold hover:bg-slate-700">Adicionar</button>
                 </div>
             </div>
-
+            
             <div class="flex-1 overflow-y-auto pr-2">
                 <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 sticky top-0 bg-white py-1">Suas Etiquetas</h4>
-                <div id="tagsList" class="space-y-2">
-                    </div>
+                <div id="tagsList" class="space-y-2"></div>
             </div>
-
         </div>
     </div>
 
     <script>
-        // --- CORES PARA ETIQUETAS ---
-        const colorPalette = [
-            'bg-slate-100 text-slate-700', 'bg-red-100 text-red-700', 'bg-orange-100 text-orange-700',
-            'bg-amber-100 text-amber-700', 'bg-green-100 text-green-700', 'bg-emerald-100 text-emerald-700',
-            'bg-teal-100 text-teal-700', 'bg-cyan-100 text-cyan-700', 'bg-blue-100 text-blue-700',
-            'bg-indigo-100 text-indigo-700', 'bg-violet-100 text-violet-700', 'bg-purple-100 text-purple-700',
-            'bg-fuchsia-100 text-fuchsia-700', 'bg-pink-100 text-pink-700', 'bg-rose-100 text-rose-700'
-        ];
+        // ==========================================
+        // 1. CONFIGURAÇÃO FIREBASE (COM SUAS CHAVES REAIS)
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyA-vvx1mr5h0fufU0kHoKhIVIGL5fgBCVI",
+            authDomain: "gestao-do-dia.firebaseapp.com",
+            projectId: "gestao-do-dia",
+            storageBucket: "gestao-do-dia.firebasestorage.app",
+            messagingSenderId: "228788755384",
+            appId: "1:228788755384:web:97cd257def15a31aa70d4d"
+        };
 
-        let globalTags = [
-            { id: 'tag1', name: 'Trabalho', color: 'bg-indigo-100 text-indigo-700' },
-            { id: 'tag2', name: 'Urgente', color: 'bg-rose-100 text-rose-700' },
-            { id: 'tag3', name: 'Casa', color: 'bg-emerald-100 text-emerald-700' }
-        ];
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
 
-        let tasks = [
-            { id: '1', title: 'Enviar relatório', col: 'atrasado', impact: 'alto', completed: false, start: '', end: '2023-11-01', tags: ['tag1', 'tag2'], order: 0 },
-            { id: '2', title: 'Revisar código', col: 'agora', impact: 'alto', completed: false, start: '2023-11-15', end: '', tags: ['tag1'], order: 1 },
-            { id: '3', title: 'Comprar café', col: 'agora', impact: 'normal', completed: false, start: '', end: '', tags: ['tag3'], order: 2 }
-        ];
+        // ==========================================
+        // 2. DADOS LOCAIS E CACHE OTIMISTA
+        // ==========================================
+        let currentUser = null;
+        let globalTags = JSON.parse(localStorage.getItem('gestaodia_tags')) || [];
+        let tasks = JSON.parse(localStorage.getItem('gestaodia_tasks')) || [];
 
+        // Colunas e Impactos (Classificação Tempo A, B, C / Quente, Médio, Frio)
         const columns = [
             { id: 'atrasado', title: 'Atrasadas', corTopo: 'bg-red-900', corBotao: 'bg-red-600' },
             { id: 'agora', title: 'Agora', corTopo: 'bg-slate-800', corBotao: 'bg-blue-600' },
             { id: 'antecipado', title: 'Antecipado', corTopo: 'bg-teal-900', corBotao: 'bg-teal-600' }
         ];
-
         const impacts = [
             { id: 'alto', label: 'Alto Impacto', border: 'border-red-400' },
-            { id: 'normal', label: 'Normal', border: 'border-amber-400' },
-            { id: 'baixo', label: 'Baixo', border: 'border-blue-400' }
+            { id: 'normal', label: 'Impacto Médio', border: 'border-amber-400' },
+            { id: 'baixo', label: 'Baixo Impacto', border: 'border-blue-400' }
         ];
 
         let draggedTaskId = null;
-        let dragDisabled = false;
         let linesEnabled = true;
 
-        let modalMode = 'create'; 
-        let currentTargetCol = null;
-        let currentEditId = null;
+        // Renderização imediata (Carrega as informações antigas até sincronizar as novas)
+        renderBoard();
+        renderCalendar();
 
-        // --- SISTEMA DE ETIQUETAS (GERENCIADOR) ---
-        let currentTagColor = colorPalette[0];
-        let editingTagId = null;
-
-        function abrirModalTags() {
-            renderColorPalette();
-            renderTagsList();
-            cancelarEdicaoTag(); // Reseta formulário
-            document.getElementById('tagsModal').classList.remove('opacity-0', 'pointer-events-none');
-            document.getElementById('tagsModalContent').classList.remove('scale-95');
-        }
-
-        function renderColorPalette() {
-            const container = document.getElementById('colorPalette');
-            container.innerHTML = '';
-            colorPalette.forEach(color => {
-                // Extrai a cor de fundo para exibir na bolinha (ex: bg-red-100)
-                const bgClass = color.split(' ')[0]; 
-                const isSelected = currentTagColor === color ? 'selected' : '';
-                container.innerHTML += `<div class="color-option ${bgClass} ${isSelected}" onclick="selecionarCorTag('${color}')"></div>`;
-            });
-        }
-
-        function selecionarCorTag(color) {
-            currentTagColor = color;
-            renderColorPalette();
-        }
-
-        function salvarEtiqueta() {
-            const nameInput = document.getElementById('tagNameInput');
-            const name = nameInput.value.trim();
-            if (!name) { nameInput.focus(); return; }
-
-            if (editingTagId) {
-                // Editar existente
-                const tag = globalTags.find(t => t.id === editingTagId);
-                if (tag) { tag.name = name; tag.color = currentTagColor; }
+        // ==========================================
+        // 3. AUTENTICAÇÃO E SINCRONIZAÇÃO
+        // ==========================================
+        auth.onAuthStateChanged((user) => {
+            const overlay = document.getElementById('loginOverlay');
+            if (user) {
+                currentUser = user;
+                overlay.classList.add('opacity-0', 'pointer-events-none');
+                document.getElementById('userGreeting').textContent = `Olá, ${user.email.split('@')[0]}`;
+                syncFromFirebase();
             } else {
-                // Criar nova
-                globalTags.push({ id: 'tag' + Date.now(), name: name, color: currentTagColor });
+                currentUser = null;
+                overlay.classList.remove('opacity-0', 'pointer-events-none');
             }
+        });
 
-            cancelarEdicaoTag();
-            renderTagsList();
-            renderBoard(); // Atualiza cores/nomes nas tarefas de fundo
-        }
-
-        function iniciarEdicaoTag(id) {
-            const tag = globalTags.find(t => t.id === id);
-            if (tag) {
-                editingTagId = id;
-                document.getElementById('tagNameInput').value = tag.name;
-                currentTagColor = tag.color;
-                
-                document.getElementById('tagFormTitle').textContent = 'Editar Etiqueta';
-                document.getElementById('saveTagBtn').textContent = 'Atualizar';
-                document.getElementById('saveTagBtn').classList.replace('bg-slate-800', 'bg-blue-600');
-                document.getElementById('saveTagBtn').classList.replace('hover:bg-slate-700', 'hover:bg-blue-700');
-                document.getElementById('cancelTagEditBtn').classList.remove('hidden');
-                
-                renderColorPalette();
-                document.getElementById('tagNameInput').focus();
-            }
-        }
-
-        function cancelarEdicaoTag() {
-            editingTagId = null;
-            document.getElementById('tagNameInput').value = '';
-            currentTagColor = colorPalette[Math.floor(Math.random() * colorPalette.length)]; // Cor aleatória pro próximo
+        async function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('emailInput').value;
+            const pass = document.getElementById('passwordInput').value;
+            const btn = document.getElementById('loginBtn');
+            const err = document.getElementById('loginError');
             
-            document.getElementById('tagFormTitle').textContent = 'Criar Nova Etiqueta';
-            document.getElementById('saveTagBtn').textContent = 'Adicionar';
-            document.getElementById('saveTagBtn').classList.replace('bg-blue-600', 'bg-slate-800');
-            document.getElementById('saveTagBtn').classList.replace('hover:bg-blue-700', 'hover:bg-slate-700');
-            document.getElementById('cancelTagEditBtn').classList.add('hidden');
+            btn.innerHTML = '<div class="loader"></div>'; err.classList.add('hidden');
             
-            renderColorPalette();
-        }
-
-        function excluirTag(id) {
-            if(confirm("Tem certeza? Esta etiqueta será removida de todas as tarefas.")) {
-                // Remove da lista global
-                globalTags = globalTags.filter(t => t.id !== id);
-                // Limpa das tarefas
-                tasks.forEach(task => {
-                    if (task.tags) task.tags = task.tags.filter(tId => tId !== id);
+            try {
+                // Tenta fazer o login. Se a conta não existir, cria automaticamente.
+                await auth.signInWithEmailAndPassword(email, pass).catch(async (error) => {
+                    if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+                        return await auth.createUserWithEmailAndPassword(email, pass);
+                    } else throw error;
                 });
-                if(editingTagId === id) cancelarEdicaoTag();
-                renderTagsList();
-                renderBoard();
+            } catch (error) {
+                err.classList.remove('hidden');
+                err.textContent = "Erro ao acessar: Verifique seu e-mail e senha.";
+            } finally {
+                btn.innerHTML = 'Entrar <i class="fa-solid fa-arrow-right"></i>';
             }
         }
 
-        function renderTagsList() {
-            const container = document.getElementById('tagsList');
-            container.innerHTML = '';
-            if (globalTags.length === 0) {
-                container.innerHTML = '<p class="text-xs text-slate-400 italic">Nenhuma etiqueta criada.</p>';
-                return;
-            }
+        function logout() { auth.signOut(); }
+
+        async function saveData() {
+            localStorage.setItem('gestaodia_tasks', JSON.stringify(tasks));
+            localStorage.setItem('gestaodia_tags', JSON.stringify(globalTags));
             
-            globalTags.forEach(tag => {
+            if (currentUser) {
+                document.getElementById('syncStatus').innerHTML = '<div class="loader w-4 h-4 border-2 border-slate-400 border-top-2 border-top-slate-800"></div>';
+                try {
+                    await db.collection('users').doc(currentUser.uid).set({
+                        tasks: tasks,
+                        tags: globalTags,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    document.getElementById('syncStatus').innerHTML = '<i class="fa-solid fa-cloud-check text-blue-400"></i>';
+                } catch(e) {
+                    console.error("Erro ao sincronizar", e);
+                    document.getElementById('syncStatus').innerHTML = '<i class="fa-solid fa-cloud-xmark text-red-400" title="Offline"></i>';
+                }
+            }
+        }
+
+        async function syncFromFirebase() {
+            if(!currentUser) return;
+            try {
+                const docRef = await db.collection('users').doc(currentUser.uid).get();
+                if (docRef.exists) {
+                    const data = docRef.data();
+                    if (data.tasks) tasks = data.tasks;
+                    if (data.tags) globalTags = data.tags;
+                    
+                    localStorage.setItem('gestaodia_tasks', JSON.stringify(tasks));
+                    localStorage.setItem('gestaodia_tags', JSON.stringify(globalTags));
+                    renderBoard();
+                }
+            } catch(e) { console.error("Erro ao puxar dados da nuvem", e); }
+        }
+
+        // ==========================================
+        // 4. LÓGICA DE SUBTAREFAS
+        // ==========================================
+        let currentSubtasks = [];
+
+        function renderSubtasks() {
+            const container = document.getElementById('subtasksContainer');
+            container.innerHTML = '';
+            currentSubtasks.forEach((sub, idx) => {
+                const checked = sub.done ? 'checked' : '';
+                const strike = sub.done ? 'line-through text-slate-400' : 'text-slate-700';
                 container.innerHTML += `
-                    <div class="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg border border-transparent hover:border-slate-100 group transition-colors">
-                        <span class="badge ${tag.color} text-xs py-1 px-3">${tag.name}</span>
-                        <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onclick="iniciarEdicaoTag('${tag.id}')" class="text-slate-400 hover:text-blue-500"><i class="fa-solid fa-pen text-xs"></i></button>
-                            <button onclick="excluirTag('${tag.id}')" class="text-slate-400 hover:text-red-500"><i class="fa-solid fa-trash text-xs"></i></button>
-                        </div>
+                    <div class="flex items-center gap-2 bg-white p-2 rounded border border-slate-200">
+                        <input type="checkbox" ${checked} onchange="toggleSubtask(${idx})" class="accent-blue-600 w-4 h-4 cursor-pointer">
+                        <span class="text-sm flex-1 ${strike}">${sub.title}</span>
+                        <button type="button" onclick="removeSubtask(${idx})" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                 `;
             });
         }
 
+        function handleSubtaskEnter(e) { if(e.key === 'Enter') { e.preventDefault(); addSubtask(); } }
+        function addSubtask() {
+            const input = document.getElementById('subtaskInput');
+            if(input.value.trim()) {
+                currentSubtasks.push({ title: input.value.trim(), done: false });
+                input.value = ''; renderSubtasks();
+            }
+        }
+        function toggleSubtask(idx) { currentSubtasks[idx].done = !currentSubtasks[idx].done; renderSubtasks(); }
+        function removeSubtask(idx) { currentSubtasks.splice(idx, 1); renderSubtasks(); }
 
-        // --- MODAL DE TAREFAS (CRUD) ---
+        // ==========================================
+        // 5. MODAL DE TAREFAS
+        // ==========================================
+        let modalMode = 'create'; let currentTargetCol = null; let currentEditId = null;
+
         function abrirModalCriar(colId) {
-            modalMode = 'create'; currentTargetCol = colId;
+            modalMode = 'create'; currentTargetCol = colId; currentSubtasks = [];
             document.getElementById('modalTitle').textContent = 'Nova Tarefa';
             document.getElementById('taskInput').value = '';
-            document.getElementById('taskStart').value = '';
-            document.getElementById('taskEnd').value = '';
-            renderTagsCheckboxes([]);
+            document.getElementById('taskStart').value = ''; document.getElementById('taskEnd').value = '';
+            renderTagsCheckboxes([]); renderSubtasks();
             document.getElementById('taskModal').classList.remove('opacity-0', 'pointer-events-none');
             document.getElementById('taskModalContent').classList.remove('scale-95');
         }
@@ -326,112 +384,42 @@
         function abrirModalEditar(id) {
             const task = tasks.find(t => t.id === id);
             if(task) {
-                modalMode = 'edit'; currentEditId = id;
+                modalMode = 'edit'; currentEditId = id; currentSubtasks = task.subtasks || [];
                 document.getElementById('modalTitle').textContent = 'Editar Tarefa';
                 document.getElementById('taskInput').value = task.title;
-                document.getElementById('taskStart').value = task.start || '';
-                document.getElementById('taskEnd').value = task.end || '';
-                renderTagsCheckboxes(task.tags || []);
+                document.getElementById('taskStart').value = task.start || ''; document.getElementById('taskEnd').value = task.end || '';
+                renderTagsCheckboxes(task.tags || []); renderSubtasks();
                 document.getElementById('taskModal').classList.remove('opacity-0', 'pointer-events-none');
                 document.getElementById('taskModalContent').classList.remove('scale-95');
             }
         }
 
-        function fecharModal(modalId) {
-            document.getElementById(modalId).classList.add('opacity-0', 'pointer-events-none');
-            document.getElementById(modalId + 'Content').classList.add('scale-95');
-        }
-
-        function renderTagsCheckboxes(selectedTagIds) {
-            const container = document.getElementById('tagsContainer');
-            container.innerHTML = '';
-            if (globalTags.length === 0) container.innerHTML = '<span class="text-xs text-slate-400">Sem etiquetas disponíveis.</span>';
-            
-            globalTags.forEach(tag => {
-                const checked = selectedTagIds.includes(tag.id) ? 'checked' : '';
-                container.innerHTML += `
-                    <label class="cursor-pointer inline-flex items-center gap-1 bg-slate-50 border border-slate-200 px-3 py-1 rounded-full hover:bg-slate-100 transition-colors">
-                        <input type="checkbox" value="${tag.id}" class="tag-checkbox accent-blue-600" ${checked}>
-                        <span class="text-xs font-semibold text-slate-600">${tag.name}</span>
-                    </label>
-                `;
-            });
+        function fecharModal(id) {
+            document.getElementById(id).classList.add('opacity-0', 'pointer-events-none');
+            document.getElementById(id+'Content').classList.add('scale-95');
         }
 
         function salvarTarefa() {
             const title = document.getElementById('taskInput').value.trim();
             if (!title) return;
-            const start = document.getElementById('taskStart').value;
-            const end = document.getElementById('taskEnd').value;
+            const start = document.getElementById('taskStart').value; const end = document.getElementById('taskEnd').value;
             const selectedTags = Array.from(document.querySelectorAll('.tag-checkbox:checked')).map(cb => cb.value);
 
             if (modalMode === 'create') {
                 tasks.push({
                     id: Date.now().toString(), title: title, col: currentTargetCol, impact: 'normal', completed: false,
-                    start: start, end: end, tags: selectedTags, order: tasks.length
+                    start: start, end: end, tags: selectedTags, subtasks: currentSubtasks, order: tasks.length
                 });
             } else if (modalMode === 'edit') {
                 const task = tasks.find(t => t.id === currentEditId);
-                if (task) { task.title = title; task.start = start; task.end = end; task.tags = selectedTags; }
+                if (task) { task.title = title; task.start = start; task.end = end; task.tags = selectedTags; task.subtasks = currentSubtasks; }
             }
-            fecharModal('taskModal'); renderBoard();
+            fecharModal('taskModal'); renderBoard(); saveData();
         }
 
-        // --- ARRASTO (DnD) E UTILIDADES ---
-        function getDragAfterElement(container, y) {
-            const draggableElements = [...container.querySelectorAll('.task-card:not(.dragging)')];
-            return draggableElements.reduce((closest, child) => {
-                const box = child.getBoundingClientRect();
-                const offset = y - box.top - box.height / 2;
-                if (offset < 0 && offset > closest.offset) return { offset: offset, element: child };
-                else return closest;
-            }, { offset: Number.NEGATIVE_INFINITY }).element;
-        }
-
-        function moverTarefaPara(id, novaColuna, novoImpacto, elementoAbaixo) {
-            const taskIndex = tasks.findIndex(t => t.id === id);
-            if(taskIndex > -1) {
-                let task = tasks[taskIndex];
-                task.col = novaColuna; task.impact = novoImpacto; task.completed = false;
-                tasks.splice(taskIndex, 1);
-                
-                if (elementoAbaixo) {
-                    const indexAbaixo = tasks.findIndex(t => t.id === elementoAbaixo.getAttribute('data-id'));
-                    tasks.splice(indexAbaixo, 0, task);
-                } else tasks.push(task);
-                
-                tasks.forEach((t, i) => t.order = i); renderBoard();
-            }
-        }
-
-        function concluirTarefaDrag(id, colId) {
-            const task = tasks.find(t => t.id === id);
-            if(task) { task.completed = true; task.col = colId; renderBoard(); }
-        }
-
-        function toggleStatusTarefa(id) { const task = tasks.find(t => t.id === id); if(task) { task.completed = !task.completed; renderBoard(); } }
-        function excluirTarefa(id) { if(confirm("Excluir anotação?")) { tasks = tasks.filter(t => t.id !== id); renderBoard(); } }
-        
-        function toggleLines() {
-            linesEnabled = !linesEnabled;
-            document.getElementById('linesText').textContent = linesEnabled ? "Ocultar Pauta" : "Mostrar Pauta";
-            document.getElementById('linesIcon').className = linesEnabled ? "fa-solid fa-bars w-4" : "fa-regular fa-file w-4";
-            renderBoard();
-        }
-
-        function setDragDisabled(disabled) {
-            dragDisabled = disabled;
-            document.getElementById('lockDragBtn').classList.toggle('hidden', disabled);
-            document.getElementById('unlockDragBtn').classList.toggle('hidden', !disabled);
-            renderBoard(); 
-        }
-
-        function formatDate(dateString) {
-            if(!dateString) return '';
-            const [y, m, d] = dateString.split('-'); return `${d}/${m}`;
-        }
-
-        // --- RENDERIZAÇÃO PRINCIPAL ---
+        // ==========================================
+        // 6. RENDERIZAÇÃO PRINCIPAL (BOARD)
+        // ==========================================
         function renderBoard() {
             const board = document.getElementById('board');
             board.innerHTML = '';
@@ -442,19 +430,21 @@
                 caderneta.className = "relative flex-1 flex flex-col min-w-[340px] max-w-[420px] mb-8";
 
                 let espiralHTML = '<div class="espiral-container">';
-                for(let i=0; i<12; i++) { espiralHTML += `<div class="relative"><div class="anel-espiral"></div><div class="furo-papel"></div></div>`; }
+                for(let i=0; i<12; i++) espiralHTML += `<div class="relative"><div class="anel-espiral"></div><div class="furo-papel"></div></div>`;
                 espiralHTML += '</div>';
 
                 let corpoHTML = `
-                    <div class="flex-1 flex flex-col rounded-b-xl rounded-t-md shadow-2xl overflow-visible bg-white border border-gray-300 relative">
+                    <div class="flex-1 flex flex-col rounded-b-xl rounded-t-md shadow-2xl overflow-visible bg-white border border-gray-300 relative h-full">
                         <div class="pt-6 pb-3 px-4 ${col.corTopo} text-white text-center rounded-t-md relative z-10 border-b-4 border-black/20">
                             <h3 class="text-xl font-black uppercase tracking-widest">${col.title}</h3>
                         </div>
-                        <div class="papel-base ${currentPaperClass} flex-1 overflow-y-auto px-4 pt-1 space-y-4" id="zonas-${col.id}"></div>
-                        <div class="papel-base ${currentPaperClass} px-4 py-2 border-t-2 border-dashed border-slate-300 max-h-32 overflow-y-auto transition-colors" id="concluidas-${col.id}">
+                        
+                        <div class="papel-base ${currentPaperClass} flex-1 overflow-y-auto px-4 pt-1 pb-10" id="zonas-${col.id}"></div>
+                        
+                        <div class="papel-base ${currentPaperClass} px-4 py-2 border-t-2 border-dashed border-slate-300 max-h-32 overflow-y-auto transition-colors shrink-0" id="concluidas-${col.id}">
                             <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1 mt-1">Concluídas</h4>
                         </div>
-                        <button onclick="abrirModalCriar('${col.id}')" class="btn-criacao ${col.corBotao} text-white" title="Adicionar Tarefa"><i class="fa-solid fa-plus text-xl"></i></button>
+                        <button onclick="abrirModalCriar('${col.id}')" class="btn-criacao ${col.corBotao} text-white"><i class="fa-solid fa-plus text-xl"></i></button>
                     </div>
                 `;
 
@@ -462,18 +452,16 @@
                 board.appendChild(caderneta);
 
                 const zonasContainer = document.getElementById(`zonas-${col.id}`);
-                
                 impacts.forEach(imp => {
                     const zona = document.createElement('div');
                     zona.className = `min-h-[64px] border-l-4 rounded-r-lg pl-2 transition-colors ${imp.border}`;
                     zona.innerHTML = `<span class="text-[10px] font-bold text-slate-400 uppercase bg-white/60 px-1 rounded inline-block mt-1">${imp.label}</span>`;
                     
-                    zona.addEventListener('dragover', e => { if(dragDisabled) return; e.preventDefault(); zona.classList.add('drag-over'); });
+                    zona.addEventListener('dragover', e => { e.preventDefault(); zona.classList.add('drag-over'); });
                     zona.addEventListener('dragleave', () => zona.classList.remove('drag-over'));
                     zona.addEventListener('drop', e => {
-                        if(dragDisabled) return; e.preventDefault(); zona.classList.remove('drag-over');
-                        const afterElement = getDragAfterElement(zona, e.clientY);
-                        moverTarefaPara(draggedTaskId, col.id, imp.id, afterElement);
+                        e.preventDefault(); zona.classList.remove('drag-over');
+                        moverTarefaPara(draggedTaskId, col.id, imp.id, getDragAfterElement(zona, e.clientY));
                     });
 
                     const tarefasAtivas = tasks.filter(t => t.col === col.id && t.impact === imp.id && !t.completed).sort((a,b) => a.order - b.order);
@@ -482,16 +470,39 @@
                 });
 
                 const concluidasContainer = document.getElementById(`concluidas-${col.id}`);
-                concluidasContainer.addEventListener('dragover', e => { if(dragDisabled) return; e.preventDefault(); concluidasContainer.classList.add('bg-slate-100'); });
+                concluidasContainer.addEventListener('dragover', e => { e.preventDefault(); concluidasContainer.classList.add('bg-slate-100'); });
                 concluidasContainer.addEventListener('dragleave', () => concluidasContainer.classList.remove('bg-slate-100'));
                 concluidasContainer.addEventListener('drop', e => {
-                    if(dragDisabled) return; e.preventDefault(); concluidasContainer.classList.remove('bg-slate-100');
+                    e.preventDefault(); concluidasContainer.classList.remove('bg-slate-100');
                     concluirTarefaDrag(draggedTaskId, col.id);
                 });
 
                 const tarefasConcluidas = tasks.filter(t => t.col === col.id && t.completed).sort((a,b) => a.order - b.order);
                 tarefasConcluidas.forEach(task => concluidasContainer.appendChild(criarElementoTarefa(task)));
             });
+        }
+
+        // --- MANIPULAÇÃO DE TAREFAS ---
+        function concluirTarefaDrag(id, colId) {
+            const task = tasks.find(t => t.id === id);
+            if(task) { task.completed = true; task.col = colId; renderBoard(); saveData(); }
+        }
+
+        function toggleStatusTarefa(id) { const task = tasks.find(t => t.id === id); if(task) { task.completed = !task.completed; renderBoard(); saveData(); } }
+        function excluirTarefa(id) { if(confirm("Excluir anotação?")) { tasks = tasks.filter(t => t.id !== id); renderBoard(); saveData(); } }
+        
+        function moverTarefaPara(id, novaColuna, novoImpacto, elementoAbaixo) {
+            const taskIndex = tasks.findIndex(t => t.id === id);
+            if(taskIndex > -1) {
+                let task = tasks[taskIndex];
+                task.col = novaColuna; task.impact = novoImpacto; task.completed = false;
+                tasks.splice(taskIndex, 1);
+                if (elementoAbaixo) {
+                    const indexAbaixo = tasks.findIndex(t => t.id === elementoAbaixo.getAttribute('data-id'));
+                    tasks.splice(indexAbaixo, 0, task);
+                } else tasks.push(task);
+                tasks.forEach((t, i) => t.order = i); renderBoard(); saveData();
+            }
         }
 
         function criarElementoTarefa(task) {
@@ -504,13 +515,11 @@
                 if(tagObj) tagsHTML += `<span class="badge ${tagObj.color}">${tagObj.name}</span>`;
             });
 
-            let datasHTML = '';
-            if(task.start || task.end) {
-                let txt = '';
-                if(task.start && task.end) txt = `${formatDate(task.start)} a ${formatDate(task.end)}`;
-                else if(task.end) txt = `<i class="fa-regular fa-clock"></i> ${formatDate(task.end)}`;
-                else txt = `Início: ${formatDate(task.start)}`;
-                datasHTML = `<span class="badge bg-amber-100 text-amber-700 ml-1">${txt}</span>`;
+            let extrasHTML = '';
+            if(task.end) extrasHTML += `<span class="badge bg-amber-100 text-amber-700 ml-1"><i class="fa-regular fa-clock"></i> ${task.end.split('-').slice(1,3).reverse().join('/')}</span>`;
+            if(task.subtasks && task.subtasks.length > 0) {
+                const concluidas = task.subtasks.filter(s => s.done).length;
+                extrasHTML += `<span class="badge bg-slate-100 text-slate-600 ml-1 border border-slate-200"><i class="fa-solid fa-list-check"></i> ${concluidas}/${task.subtasks.length}</span>`;
             }
 
             if (task.completed) {
@@ -522,23 +531,18 @@
                 `;
             } else {
                 div.className = "task-card flex items-start gap-2 group";
-                div.draggable = !dragDisabled;
-                
-                div.addEventListener('dragstart', (e) => { 
-                    if(dragDisabled) { e.preventDefault(); return; }
-                    draggedTaskId = task.id; div.classList.add('dragging'); 
-                });
+                div.draggable = true;
+                div.addEventListener('dragstart', (e) => { draggedTaskId = task.id; div.classList.add('dragging'); });
                 div.addEventListener('dragend', () => { draggedTaskId = null; div.classList.remove('dragging'); });
 
                 div.innerHTML = `
-                    <i class="fa-solid fa-grip-vertical text-slate-300 shrink-0 mt-2 ${dragDisabled ? 'hidden' : 'cursor-grab'} hover:text-slate-500"></i>
+                    <i class="fa-solid fa-grip-vertical text-slate-300 shrink-0 mt-2 cursor-grab hover:text-slate-500"></i>
                     <input type="checkbox" onclick="toggleStatusTarefa('${task.id}')" class="w-4 h-4 cursor-pointer accent-slate-800 shrink-0 mt-2">
-                    <div class="flex-1 truncate overflow-hidden whitespace-nowrap">
+                    <div class="flex-1 truncate overflow-hidden whitespace-nowrap cursor-pointer" onclick="abrirModalEditar('${task.id}')">
                         <span class="text-sm font-semibold text-slate-800 align-middle inline-block">${task.title}</span>
-                        ${datasHTML} ${tagsHTML}
+                        ${extrasHTML} ${tagsHTML}
                     </div>
                     <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 bg-white/90 px-1 rounded mt-2">
-                        <button onclick="abrirModalEditar('${task.id}')"><i class="fa-solid fa-pen text-blue-500 text-xs hover:text-blue-700"></i></button>
                         <button onclick="excluirTarefa('${task.id}')"><i class="fa-solid fa-trash text-red-500 text-xs hover:text-red-700"></i></button>
                     </div>
                 `;
@@ -546,7 +550,130 @@
             return div;
         }
 
-        renderBoard();
+        function toggleLines() {
+            linesEnabled = !linesEnabled;
+            document.getElementById('linesText').textContent = linesEnabled ? "Ocultar Pauta" : "Mostrar Pauta";
+            document.getElementById('linesIcon').className = linesEnabled ? "fa-solid fa-bars w-4" : "fa-regular fa-file w-4";
+            renderBoard();
+        }
+
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.task-card:not(.dragging)')];
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) return { offset: offset, element: child };
+                else return closest;
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+        // ==========================================
+        // 7. CALENDÁRIO
+        // ==========================================
+        function renderCalendar() {
+            const grid = document.getElementById('calendarGrid');
+            const now = new Date();
+            const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+            document.getElementById('calMonth').textContent = `${meses[now.getMonth()]} ${now.getFullYear()}`;
+            
+            let html = '';
+            for(let i=1; i<=31; i++) {
+                const isToday = i === now.getDate() ? 'bg-blue-600 text-white rounded-full shadow-md shadow-blue-500/40' : 'text-slate-600 hover:bg-slate-100 rounded-full cursor-pointer';
+                html += `<div class="p-1"><div class="w-7 h-7 flex items-center justify-center text-xs font-semibold mx-auto ${isToday}">${i}</div></div>`;
+            }
+            grid.innerHTML = html;
+        }
+
+        // ==========================================
+        // 8. ETIQUETAS
+        // ==========================================
+        const colorPalette = [
+            'bg-slate-100 text-slate-700', 'bg-red-100 text-red-700', 'bg-orange-100 text-orange-700',
+            'bg-amber-100 text-amber-700', 'bg-green-100 text-green-700', 'bg-emerald-100 text-emerald-700',
+            'bg-teal-100 text-teal-700', 'bg-cyan-100 text-cyan-700', 'bg-blue-100 text-blue-700',
+            'bg-indigo-100 text-indigo-700', 'bg-violet-100 text-violet-700', 'bg-purple-100 text-purple-700',
+            'bg-fuchsia-100 text-fuchsia-700', 'bg-pink-100 text-pink-700', 'bg-rose-100 text-rose-700'
+        ];
+        let currentTagColor = colorPalette[0]; let editingTagId = null;
+
+        function abrirModalTags() {
+            renderColorPalette(); renderTagsList(); cancelarEdicaoTag();
+            document.getElementById('tagsModal').classList.remove('opacity-0', 'pointer-events-none');
+            document.getElementById('tagsModalContent').classList.remove('scale-95');
+        }
+
+        function renderColorPalette() {
+            const container = document.getElementById('colorPalette'); container.innerHTML = '';
+            colorPalette.forEach(color => {
+                const bgClass = color.split(' ')[0]; const isSelected = currentTagColor === color ? 'border-black transform scale-110' : 'border-transparent';
+                container.innerHTML += `<div class="w-6 h-6 rounded-full cursor-pointer border-2 ${bgClass} ${isSelected}" onclick="selecionarCorTag('${color}')"></div>`;
+            });
+        }
+
+        function selecionarCorTag(color) { currentTagColor = color; renderColorPalette(); }
+
+        function salvarEtiqueta() {
+            const name = document.getElementById('tagNameInput').value.trim();
+            if (!name) return;
+            if (editingTagId) { const tag = globalTags.find(t => t.id === editingTagId); if (tag) { tag.name = name; tag.color = currentTagColor; } } 
+            else globalTags.push({ id: 'tag' + Date.now(), name: name, color: currentTagColor });
+            cancelarEdicaoTag(); renderTagsList(); renderBoard(); saveData();
+        }
+
+        function iniciarEdicaoTag(id) {
+            const tag = globalTags.find(t => t.id === id);
+            if (tag) {
+                editingTagId = id; document.getElementById('tagNameInput').value = tag.name; currentTagColor = tag.color;
+                document.getElementById('tagFormTitle').textContent = 'Editar Etiqueta';
+                document.getElementById('saveTagBtn').textContent = 'Atualizar';
+                document.getElementById('cancelTagEditBtn').classList.remove('hidden');
+                renderColorPalette();
+            }
+        }
+
+        function cancelarEdicaoTag() {
+            editingTagId = null; document.getElementById('tagNameInput').value = '';
+            currentTagColor = colorPalette[Math.floor(Math.random() * colorPalette.length)];
+            document.getElementById('tagFormTitle').textContent = 'Criar Etiqueta';
+            document.getElementById('saveTagBtn').textContent = 'Adicionar';
+            document.getElementById('cancelTagEditBtn').classList.add('hidden');
+            renderColorPalette();
+        }
+
+        function excluirTag(id) {
+            if(confirm("Remover esta etiqueta de todas as tarefas?")) {
+                globalTags = globalTags.filter(t => t.id !== id);
+                tasks.forEach(task => { if (task.tags) task.tags = task.tags.filter(tId => tId !== id); });
+                if(editingTagId === id) cancelarEdicaoTag();
+                renderTagsList(); renderBoard(); saveData();
+            }
+        }
+
+        function renderTagsList() {
+            const container = document.getElementById('tagsList'); container.innerHTML = '';
+            globalTags.forEach(tag => {
+                container.innerHTML += `
+                    <div class="flex items-center justify-between p-2 hover:bg-slate-50 rounded border border-transparent hover:border-slate-200 group">
+                        <span class="badge ${tag.color}">${tag.name}</span>
+                        <div class="flex gap-2 opacity-0 group-hover:opacity-100">
+                            <button onclick="iniciarEdicaoTag('${tag.id}')" class="text-slate-400 hover:text-blue-500"><i class="fa-solid fa-pen text-xs"></i></button>
+                            <button onclick="excluirTag('${tag.id}')" class="text-slate-400 hover:text-red-500"><i class="fa-solid fa-trash text-xs"></i></button>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function renderTagsCheckboxes(selectedIds) {
+            const container = document.getElementById('tagsContainer'); container.innerHTML = '';
+            globalTags.forEach(tag => {
+                const checked = selectedIds.includes(tag.id) ? 'checked' : '';
+                container.innerHTML += `
+                    <label class="cursor-pointer inline-flex items-center gap-1 bg-slate-50 border border-slate-200 px-3 py-1 rounded-full hover:bg-slate-100">
+                        <input type="checkbox" value="${tag.id}" class="tag-checkbox accent-blue-600" ${checked}>
+                        <span class="text-xs font-semibold text-slate-600">${tag.name}</span>
+                    </label>`;
+            });
+        }
     </script>
 </body>
 </html>
