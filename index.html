@@ -114,7 +114,7 @@
         <div class="mb-10 flex justify-between items-start relative">
             <div>
                 <h1 class="text-2xl font-bold tracking-tighter">LOGO</h1>
-                <span class="text-[10px] text-slate-400 font-mono">VERSÃO 11.1 ESTÁVEL</span>
+                <span class="text-[10px] text-slate-400 font-mono">VERSÃO 11.2 ESPESSURA DUPLA</span>
             </div>
             <div id="syncStatus" class="text-blue-400" title="Sincronizado"><i class="fa-solid fa-cloud-check"></i></div>
             <button onclick="toggleMobileMenu()" class="md:hidden absolute -right-2 -top-2 text-slate-400 hover:text-white p-2"><i class="fa-solid fa-xmark text-xl"></i></button>
@@ -152,7 +152,7 @@
 
         <main class="flex-1 flex overflow-hidden p-0 md:p-10 pt-6 md:pt-8 relative w-full">
             
-            <!-- CONTÊINER DO QUADRO: O md:gap-10 retornou aqui para o desktop -->
+            <!-- CONTÊINER DO QUADRO: O md:gap-10 retorna aqui para o desktop -->
             <div class="flex md:gap-10 h-full w-full overflow-x-auto hide-scroll-x snap-x snap-mandatory pb-[100px] md:pb-6 scroll-smooth" id="board"></div>
 
             <!-- CALENDÁRIO -->
@@ -349,7 +349,7 @@
         if(activeViewProjects.length === 0) activeViewProjects = ['default'];
 
         const columns = [ { id: 'atrasado', title: 'Atrasadas', corTopo: 'bg-red-900', corBotao: 'bg-red-600' }, { id: 'agora', title: 'Agora', corTopo: 'bg-slate-800', corBotao: 'bg-blue-600' }, { id: 'antecipado', title: 'Antecipado', corTopo: 'bg-teal-900', corBotao: 'bg-teal-600' } ];
-        const impacts = [ { id: 'alto', label: 'Alto Impacto', border: 'border-l-[8px] border-red-400' }, { id: 'normal', label: 'Impacto Médio', border: 'border-l-[8px] border-amber-400' }, { id: 'baixo', label: 'Baixo Impacto', border: 'border-l-[8px] border-blue-400' } ];
+        const impacts = [ { id: 'alto', label: 'Alto Impacto', border: 'border-l-[16px] border-red-400' }, { id: 'normal', label: 'Impacto Médio', border: 'border-l-[16px] border-amber-400' }, { id: 'baixo', label: 'Baixo Impacto', border: 'border-l-[16px] border-blue-400' } ];
 
         let draggedTaskId = null; let dragDisabled = false; let linesEnabled = false;
 
@@ -379,7 +379,7 @@
             const btn = document.getElementById('loginBtn');
             const err = document.getElementById('loginError');
             
-            btn.innerHTML = 'Aguarde...'; err.classList.add('hidden');
+            btn.innerHTML = '<div class="loader"></div>'; err.classList.add('hidden');
             
             try {
                 await auth.signInWithEmailAndPassword(email, pass);
@@ -550,7 +550,7 @@
         function editarSubtaskNome(idx) { const task = allTasks.find(t => t.id === currentSubtaskManageId); const novoNome = prompt("Edite a subtarefa:", task.subtasks[idx].title); if(novoNome && novoNome.trim() !== '') { task.subtasks[idx].title = novoNome.trim(); renderManageSubtasksList(); renderBoard(); saveData(); } }
 
         // ==========================================
-        // QUADRO PRINCIPAL (COM CORREÇÃO DE GAP NO DESKTOP)
+        // QUADRO PRINCIPAL
         // ==========================================
         function renderBoard() {
             const board = document.getElementById('board'); board.innerHTML = '';
